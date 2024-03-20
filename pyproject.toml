@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "weav"
+version = "0.1.0"
+description = "extract absolute and relative urls from JavaScript files"
+authors = ["Shuaib Oladigbolu <shuaib@footstep.ninja>"]
+license = "AGPL-3.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+tree-sitter-languages = "^1.10.2"
+bs4 = "^0.0.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
