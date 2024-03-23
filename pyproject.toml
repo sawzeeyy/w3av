@@ -3,7 +3,7 @@ name = "weav"
 version = "0.1.0"
 description = "extract absolute and relative urls from JavaScript files"
 authors = ["Shuaib Oladigbolu <shuaib@footstep.ninja>"]
-license = "AGPL-3.0"
+license = "AGPL-3.0-only"
 readme = "README.md"
 
 [tool.poetry.dependencies]
