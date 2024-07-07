@@ -1,5 +1,5 @@
-from core.jsparser import parse_javascript
-from core.comment import process_comments_status
+from weav.core.jsparser import parse_javascript
+from weav.core.comment import process_comments_status
 
 
 def traverse_node(
