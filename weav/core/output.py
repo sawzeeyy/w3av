@@ -1,7 +1,7 @@
 import sys
 
 
-def print_or_save_output(output_stream, output):
+def write_output(output_stream, output):
     if output_stream is None:
         sys.exit(0)
     else:

@@ -9,7 +9,7 @@ def main():
 
     from core.argparser import parse_arguments
     from core.jsparser import parse_javascript
-    from core.output import print_or_save_output
+    from core.output import write_output
     from modes.urls import get_urls
     from modes.tree import get_syntax_tree
     from modes.strings import get_strings
@@ -47,7 +47,7 @@ def main():
             args.types
         )
 
-    print_or_save_output(args.output, result)
+    write_output(args.output, result)
 
 
 if __name__ == '__main__':
