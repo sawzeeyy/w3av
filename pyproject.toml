@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "weav"
 version = "0.1.0"
-description = "extract absolute and relative urls from JavaScript files"
+description = "extract URLs, strings, and more from JavaScript code"
 authors = ["Shuaib Oladigbolu <shuaib@footstep.ninja>"]
 license = "AGPL-3.0-only"
 readme = "README.md"
