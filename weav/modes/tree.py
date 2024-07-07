@@ -6,9 +6,14 @@ def traverse_node(
         node, tab_space, is_named, include_text, parse_comments, level=0):
     global syntax_tree
 
-    text = f"{' ' * tab_space * level} {node.type} "
-    text += f"{node.start_point}, {node.end_point}"
-    text = f'{text} - {node.text}' if include_text else text
+    field_name = node.parent.field_name_for_child(
+        node.parent.children.index(node)) if node.parent else None
+    text = f"{' ' * tab_space * level}"
+    text = text if field_name is None else f'{text}{field_name}: '
+    text += f"{node.type} "
+    text += f"({node.start_point.row}, {node.start_point.column}) - "
+    text += f"({node.end_point.row}, {node.end_point.column})"
+    text = f'{text} => {node.text}' if include_text else text
     syntax_tree.append(text)
 
     if node.type == 'comment' and parse_comments:
