@@ -12,6 +12,8 @@ tree-sitter-languages = "^1.10.2"
 bs4 = "^0.0.2"
 argparse = "^1.4.0"
 
+[tool.poetry.scripts]
+weav = "weav:main"
 
 [build-system]
 requires = ["poetry-core"]
