@@ -1,0 +1,205 @@
+import argparse
+import sys
+import textwrap
+
+
+class ArgumentParser(argparse.ArgumentParser):
+    def error(self, message):
+        sys.stderr.write(f'error: {message}\n')
+
+        if 'mode' in message:
+            self.print_help()
+        else:
+            cmd_args = sys.argv[1:]
+            if cmd_args:
+                subcommand_name = cmd_args[0]
+                if self._subparsers is not None:
+                    subcommand_choices = self._subparsers._actions[-1].choices
+                    if subcommand_name in subcommand_choices:
+                        subcommand_parser = subcommand_choices[subcommand_name]
+                        subcommand_parser.print_help()
+                    else:
+                        self.print_help()
+                else:
+                    self.print_help()
+        self.exit(1)
+
+    def print_help(self, file=None):
+        super().print_help(file)
+
+        cmd_examples = textwrap.dedent('''
+        Examples:
+            weav urls --input main.js
+            weav tree --input main.js --only-named
+            weav strings --input main.js --min 3
+            weav inspect --input main.js --types string template_string
+            cat main.js | weav urls --include-templates
+        ''')
+        print(cmd_examples)
+        self.exit(1)
+
+
+def add_subparser_with_common_args(subparsers, mode, description):
+    new_parser = subparsers.add_parser(
+        mode,
+        description=description,
+        help=description
+    )
+    new_parser._optionals.title = 'Options'
+    new_parser.add_argument(
+        '--input',
+        type=argparse.FileType('r'),
+        metavar='FILE',
+        help='JavaScript file; supports pipeline input from stdin'
+    )
+    new_parser.add_argument(
+        '--output',
+        type=argparse.FileType('w'),
+        default=sys.stdout,
+        metavar='FILE',
+        help='Output file name (default is stdout)'
+    )
+    return new_parser
+
+
+def parse_arguments():
+    prog = 'weav'
+    desc = 'extract URLs, strings, and more from JavaScript code'
+    parser = ArgumentParser(prog=prog, description=f'{prog} - {desc}')
+    parser._optionals.title = 'Options'
+    subparsers = parser.add_subparsers(title='Modes', dest='mode')
+
+    # URLs
+    parser_urls = add_subparser_with_common_args(
+        subparsers,
+        'urls',
+        'Get urls in JavaScript file'
+    )
+    parser_urls.add_argument(
+        '--placeholder',
+        type=str,
+        default='FUZZ',
+        metavar='STR',
+        help='Placeholder for expressions, templates, or variables \
+            (default is FUZZ)'
+    )
+    parser_urls.add_argument(
+        '--include-templates',
+        action='store_true',
+        help='Include URLs containing a template or variable'
+    )
+    parser_urls.add_argument(
+        '--verbose',
+        action='store_true',
+        help='Print urls as soon as they are discovered'
+    )
+
+    # Tree
+    parser_tree = add_subparser_with_common_args(
+        subparsers,
+        'tree',
+        'Print JavaScript syntax tree'
+    )
+    parser_tree.add_argument(
+        '--tab-space',
+        type=int,
+        default=2,
+        metavar='N',
+        help='Number of space used for formatting (default is 2)'
+    )
+    parser_tree.add_argument(
+        '--only-named',
+        action='store_true',
+        help='Print only named nodes'
+    )
+    parser_tree.add_argument(
+        '--include-text',
+        action='store_true',
+        help='Print the node text alongside the syntax tree'
+    )
+    parser_tree.add_argument(
+        '--parse-comments',
+        action='store_true',
+        help='Parse comment or comment blocks'
+    )
+
+    # Strings
+    parser_strings = add_subparser_with_common_args(
+        subparsers,
+        'strings',
+        'Get strings in JavaScript file'
+    )
+    parser_strings.add_argument(
+        '--min',
+        type=int,
+        metavar='N',
+        help='Minimum length of a string'
+    )
+    parser_strings.add_argument(
+        '--max',
+        type=int,
+        metavar='N',
+        help='Maximum length of a string'
+    )
+    parser_strings.add_argument(
+        '--include-error',
+        action='store_true',
+        help='Inlcude ERROR nodes'
+    )
+
+    # Inspect
+    parser_inspect = add_subparser_with_common_args(
+        subparsers,
+        'inspect',
+        'Inspect JavaScript syntax tree'
+    )
+    parser_inspect.add_argument(
+        '--get-types',
+        action='store_true',
+        help='Print all JavaScript node types and exit'
+    )
+    parser_inspect.add_argument(
+        '--types',
+        type=str,
+        nargs='*',
+        metavar='STR',
+        help='List of node types (default is all node types)'
+    )
+
+    # Parse arguments
+    args = parser.parse_args()
+
+    # Print help if mode is not specified
+    if args.mode is None:
+        parser.print_help()
+        sys.exit(1)
+
+    # Validate input parameter
+    if args.input:
+        args.javascript = args.input.read()
+    elif not sys.stdin.isatty():
+        args.javascript = sys.stdin.read()
+    else:
+        parser.error('No input was provided and there was none from stdin')
+
+    # Exit if input is empty
+    if len(args.javascript.strip()) <= 0:
+        sys.exit(0)
+
+    # Validate min and max parameter in strings mode
+    if args.mode == 'strings':
+        if args.min is not None and args.min < 1:
+            parser.error("Minimum length must be at least 1")
+
+        if args.max is not None and args.max < 1:
+            parser.error("Maximum length must be at least 1")
+
+        if args.min is not None and args.max is not None:
+            if args.min >= args.max:
+                parser.error("Minimum length must be less than Maximum length")
+
+    # Disable writing to stdout if verbose is enabled in urls mode
+    if args.mode == 'urls' and args.output == sys.stdout:
+        args.stdout = None
+
+    return args
