@@ -28,7 +28,7 @@ def main():
     elif args.mode == 'tree':
         result = get_syntax_tree(
             root_node,
-            args.tab_space,
+            args.indent,
             args.only_named,
             args.include_text,
             args.parse_comments

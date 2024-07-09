@@ -101,7 +101,7 @@ def parse_arguments():
         'Print JavaScript syntax tree'
     )
     parser_tree.add_argument(
-        '--tab-space',
+        '--indent',
         type=int,
         default=2,
         metavar='N',
