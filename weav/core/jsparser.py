@@ -8,4 +8,4 @@ def parse_javascript(code):
     tree = parser.parse(bytes(code, 'utf8'))
     root_node = tree.root_node
 
-    return root_node
+    return JS_LANGUAGE, root_node
