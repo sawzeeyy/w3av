@@ -14,9 +14,10 @@ def main():
     from weav.modes.tree import get_syntax_tree
     from weav.modes.strings import get_strings
     from weav.modes.inspect import inspect_nodes
+    from weav.modes.query import query_nodes
 
     args = parse_arguments()
-    root_node = parse_javascript(args.javascript)
+    language, root_node = parse_javascript(args.javascript)
 
     if args.mode == 'urls':
         result = get_urls(
@@ -45,6 +46,14 @@ def main():
             root_node,
             args.get_types,
             args.types
+        )
+    elif args.mode == 'query':
+        result = query_nodes(
+            language,
+            root_node,
+            args.query,
+            args.unique,
+            args.trim
         )
 
     write_output(args.output, result)

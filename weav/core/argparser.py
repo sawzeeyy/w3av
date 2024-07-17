@@ -33,6 +33,7 @@ class ArgumentParser(argparse.ArgumentParser):
             weav tree --input main.js --only-named
             weav strings --input main.js --min 3
             weav inspect --input main.js --types string template_string
+            weav query --input main.js --query '(string) @str' --trim
             cat main.js | weav urls --include-templates
         ''')
         print(cmd_examples)
@@ -166,6 +167,29 @@ def parse_arguments():
         help='List of node types (default is all node types)'
     )
 
+    # Query
+    parser_query = add_subparser_with_common_args(
+        subparsers,
+        'query',
+        'Query JavaScript syntax tree'
+    )
+    parser_query.add_argument(
+        '--query',
+        type=str,
+        metavar='STR',
+        help='Tree sitter query'
+    )
+    parser_query.add_argument(
+        '--unique',
+        action='store_true',
+        help='Get only unique capttures'
+    )
+    parser_query.add_argument(
+        '--trim',
+        action='store_true',
+        help='Decode node texts and removed leading or trailing characters'
+    )
+
     # Parse arguments
     args = parser.parse_args()
 
@@ -185,6 +209,13 @@ def parse_arguments():
     # Exit if input is empty
     if len(args.javascript.strip()) <= 0:
         sys.exit(0)
+
+    # Validate query parameter
+    if args.mode == 'query':
+        if args.query is None:
+            parser.error('argument --query: is required but not provided')
+        if len(args.query.strip()) == 0:
+            parser.error('argument --query: expected a non empty string')
 
     # Validate min and max parameter in strings mode
     if args.mode == 'strings':
