@@ -16,6 +16,9 @@ tree-sitter-javascript = "^0.21.4"
 [tool.poetry.scripts]
 weav = "weav.weav:main"
 
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2.2"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
