@@ -1,9 +1,9 @@
 from weav.core.jsparser import parse_javascript
-from weav.core.comment import process_comments_status
+from weav.core.comment import remove_comment_delimiter
 
 
 def traverse_node(node, min, max, include_error):
-    global strings_text, strings_set
+    global result_text, result_set
 
     string_nodes = {'string', 'template_string', 'string_fragment'}
     string_nodes = string_nodes | {'ERROR'} if include_error else string_nodes
@@ -12,7 +12,7 @@ def traverse_node(node, min, max, include_error):
         node_text = node.text.decode('UTF-8')
         node_text = node_text.strip('\'"')
 
-        if node_text in strings_set:
+        if node_text in result_set:
             return
 
         text_length = len(node_text)
@@ -20,8 +20,8 @@ def traverse_node(node, min, max, include_error):
         max_condition = max is None or text_length <= max
 
         if min_condition and max_condition:
-            strings_text.append(node_text)
-            strings_set.add(node_text)
+            result_text.append(node_text)
+            result_set.add(node_text)
 
     elif node.type == 'comment':
         process_comments(node, min, max, include_error)
@@ -31,18 +31,18 @@ def traverse_node(node, min, max, include_error):
 
 
 def process_comments(node, min, max, include_error):
-    node_text, comment_removed = process_comments_status(node)
+    node_text, comment_removed = remove_comment_delimiter(node.text.decode())
 
-    if comment_removed:
-        comment_node = parse_javascript(node_text)
+    if node_text is not None and comment_removed:
+        comment_node = parse_javascript(node_text)[1]
         traverse_node(comment_node, min, max, include_error)
 
 
 def get_strings(node, min, max, include_error):
-    global strings_text, strings_set
+    global result_text, result_set
 
-    strings_text = []
-    strings_set = set()
+    result_text = []
+    result_set = set()
     traverse_node(node, min, max, include_error)
 
-    return strings_text
+    return result_text

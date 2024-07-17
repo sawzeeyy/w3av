@@ -1,19 +1,19 @@
 from weav.core.jsparser import parse_javascript
-from weav.core.comment import process_comments_status
+from weav.core.comment import remove_comment_delimiter
 
 
 def traverse_node(node, types):
-    global strings_text, strings_set
+    global result_text, result_set
 
     if types is None or node.type in types:
         node_text = node.text.decode('UTF-8')
         node_text = node_text.strip('\'"')
 
-        if node_text in strings_set:
+        if node_text in result_set:
             return
 
-        strings_text.append(node_text)
-        strings_set.add(node_text)
+        result_text.append(node_text)
+        result_set.add(node_text)
 
     if node.type == 'comment':
         process_comments(node, types)
@@ -23,10 +23,10 @@ def traverse_node(node, types):
 
 
 def process_comments(node, types):
-    node_text, comment_removed = process_comments_status(node)
+    node_text, comment_removed = remove_comment_delimiter(node.text.decode())
 
-    if comment_removed:
-        comment_node = parse_javascript(node_text)
+    if node_text is not None and comment_removed:
+        comment_node = parse_javascript(node_text)[1]
         traverse_node(comment_node, types)
 
 
@@ -37,12 +37,12 @@ def inspect_nodes(node, get_types, types):
     if get_types:
         return all_nodetypes
 
-    global strings_text, strings_set
+    global result_text, result_set
 
-    strings_text = []
-    strings_set = set()
+    result_text = []
+    result_set = set()
 
     types = None if types is None or len(types) == 0 else set(types)
     traverse_node(node, types)
 
-    return strings_text
+    return result_text

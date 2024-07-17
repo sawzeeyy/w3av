@@ -1,5 +1,5 @@
 from weav.core.jsparser import parse_javascript
-from weav.core.comment import process_comments_status
+from weav.core.comment import remove_comment_delimiter
 
 
 def traverse_node(
@@ -35,10 +35,10 @@ def traverse_node(
 
 
 def process_comments(node, indent, is_named, include_text, level):
-    node_text, comment_removed = process_comments_status(node)
+    node_text, comment_removed = remove_comment_delimiter(node.text.decode())
 
-    if comment_removed:
-        comment_node = parse_javascript(node_text)
+    if node_text is not None and comment_removed:
+        comment_node = parse_javascript(node_text)[1]
         traverse_node(
             comment_node,
             indent,
