@@ -211,17 +211,21 @@ def parse_arguments():
         parser.print_help()
         sys.exit(0)
 
-    # Validate input parameter
-    if args.input:
-        args.javascript = args.input.read()
-    elif not sys.stdin.isatty():
-        args.javascript = sys.stdin.read()
+    # Allow --get-types in inspect mode without input
+    if args.mode == 'inspect' and getattr(args, 'get_types', False):
+        args.javascript = ''
     else:
-        parser.error('No input was provided and there was none from stdin')
+        # Validate input parameter
+        if args.input:
+            args.javascript = args.input.read()
+        elif not sys.stdin.isatty():
+            args.javascript = sys.stdin.read()
+        else:
+            parser.error('No input was provided and there was none from stdin')
 
-    # Exit if input is empty
-    if len(args.javascript.strip()) <= 0:
-        sys.exit(1)
+        # Exit if input is empty
+        if len(args.javascript.strip()) <= 0:
+            sys.exit(1)
 
     # Validate query parameter
     if args.mode == 'query':
