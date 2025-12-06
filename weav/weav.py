@@ -1,20 +1,20 @@
-#!/usr/env/bin python3
+#!/usr/bin/env python3
 import sys
+
+from weav.core.argparser import parse_arguments
+from weav.core.jsparser import parse_javascript
+from weav.core.output import write_output
+from weav.modes.urls import get_urls
+from weav.modes.tree import get_syntax_tree
+from weav.modes.strings import get_strings
+from weav.modes.inspect import inspect_nodes
+from weav.modes.query import query_nodes
 
 
 def main():
     if sys.version_info < (3, 6):
         print("weav requires Python 3.6 or higher")
         sys.exit(1)
-
-    from weav.core.argparser import parse_arguments
-    from weav.core.jsparser import parse_javascript
-    from weav.core.output import write_output
-    from weav.modes.urls import get_urls
-    from weav.modes.tree import get_syntax_tree
-    from weav.modes.strings import get_strings
-    from weav.modes.inspect import inspect_nodes
-    from weav.modes.query import query_nodes
 
     args = parse_arguments()
     language, root_node = parse_javascript(args.javascript)
