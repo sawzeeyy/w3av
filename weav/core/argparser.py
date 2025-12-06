@@ -31,10 +31,11 @@ class ArgumentParser(argparse.ArgumentParser):
 
         cmd_examples = textwrap.dedent('''
         Examples:
+            weav urls main.js
             weav urls --input main.js
-            weav tree --input main.js --only-named
-            weav strings --input main.js --min 3
-            weav inspect --input main.js --types string template_string
+            weav tree main.js --only-named
+            weav strings main.js --min 3
+            weav inspect main.js --types string template_string
             weav query --input main.js --query '(string) @str' --trim
             cat main.js | weav urls --include-templates
         ''')
@@ -58,12 +59,23 @@ def add_subparser_with_common_args(subparsers, mode, description):
         formatter_class=ArgumentDefaultsHelpFormatter
     )
     new_parser._optionals.title = 'Options'
-    new_parser.add_argument(
+
+    # Create mutually exclusive group for input
+    input_group = new_parser.add_mutually_exclusive_group()
+    input_group.add_argument(
+        'input_file',
+        nargs='?',
+        type=argparse.FileType('r'),
+        metavar='FILE',
+        help='JavaScript file; supports pipeline input from stdin'
+    )
+    input_group.add_argument(
         '--input',
         type=argparse.FileType('r'),
         metavar='FILE',
         help='JavaScript file; supports pipeline input from stdin'
     )
+
     new_parser.add_argument(
         '--output',
         type=argparse.FileType('w'),
@@ -215,9 +227,11 @@ def parse_arguments():
     if args.mode == 'inspect' and getattr(args, 'get_types', False):
         args.javascript = ''
     else:
-        # Validate input parameter
-        if args.input:
-            args.javascript = args.input.read()
+        # Validate input parameter - check both positional and --input
+        input_file = args.input if args.input else args.input_file
+
+        if input_file:
+            args.javascript = input_file.read()
         elif not sys.stdin.isatty():
             args.javascript = sys.stdin.read()
         else:
