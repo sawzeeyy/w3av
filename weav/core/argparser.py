@@ -2,6 +2,8 @@ import argparse
 import sys
 import textwrap
 
+from importlib.metadata import version as pkg_version
+
 
 class ArgumentParser(argparse.ArgumentParser):
     def error(self, message):
@@ -75,7 +77,10 @@ def add_subparser_with_common_args(subparsers, mode, description):
 def parse_arguments():
     prog = 'weav'
     desc = 'extract URLs, strings, and more from JavaScript code'
+    __version__ = pkg_version(prog)
     parser = ArgumentParser(prog=prog, description=f'{prog} - {desc}')
+    parser.add_argument('-v', '--version', action='version',
+                        version=f'{prog} {__version__}')
     parser._optionals.title = 'Options'
     subparsers = parser.add_subparsers(title='Modes', dest='mode')
 
