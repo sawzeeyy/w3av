@@ -37,14 +37,23 @@ class ArgumentParser(argparse.ArgumentParser):
             cat main.js | weav urls --include-templates
         ''')
         print(cmd_examples)
-        self.exit(1)
+
+
+class ArgumentDefaultsHelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
+    def _get_help_string(self, action):
+        # For --output, always show '(default: stdout)'
+        if action.dest == 'output':
+            help_str = action.help or ''
+            return f'{help_str} (default: stdout)'
+        return super()._get_help_string(action)
 
 
 def add_subparser_with_common_args(subparsers, mode, description):
     new_parser = subparsers.add_parser(
         mode,
         description=description,
-        help=description
+        help=description,
+        formatter_class=ArgumentDefaultsHelpFormatter
     )
     new_parser._optionals.title = 'Options'
     new_parser.add_argument(
@@ -58,7 +67,7 @@ def add_subparser_with_common_args(subparsers, mode, description):
         type=argparse.FileType('w'),
         default=sys.stdout,
         metavar='FILE',
-        help='Output file name (default is stdout)'
+        help='Output file name'
     )
     return new_parser
 
@@ -81,8 +90,7 @@ def parse_arguments():
         type=str,
         default='FUZZ',
         metavar='STR',
-        help='Placeholder for expressions, templates, or variables \
-            (default is FUZZ)'
+        help='Placeholder for expressions, templates, or variables'
     )
     parser_urls.add_argument(
         '--include-templates',
@@ -106,7 +114,7 @@ def parse_arguments():
         type=int,
         default=2,
         metavar='N',
-        help='Number of space used for formatting (default is 2)'
+        help='Number of space used for formatting'
     )
     parser_tree.add_argument(
         '--only-named',
@@ -164,7 +172,7 @@ def parse_arguments():
         type=str,
         nargs='*',
         metavar='STR',
-        help='List of node types (default is all node types)'
+        help='Filter list of node types to inspect'
     )
 
     # Query
@@ -196,7 +204,7 @@ def parse_arguments():
     # Print help if mode is not specified
     if args.mode is None:
         parser.print_help()
-        sys.exit(1)
+        sys.exit(0)
 
     # Validate input parameter
     if args.input:
@@ -208,7 +216,7 @@ def parse_arguments():
 
     # Exit if input is empty
     if len(args.javascript.strip()) <= 0:
-        sys.exit(0)
+        sys.exit(1)
 
     # Validate query parameter
     if args.mode == 'query':
@@ -230,7 +238,8 @@ def parse_arguments():
                 parser.error("Minimum length must be less than Maximum length")
 
     # Disable writing to stdout if verbose is enabled in urls mode
-    if args.mode == 'urls' and args.output == sys.stdout:
+    # since urls are printed as they are found
+    if args.mode == 'urls' and args.verbose and args.output == sys.stdout:
         args.stdout = None
 
     return args
