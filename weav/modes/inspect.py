@@ -1,5 +1,6 @@
 from weav.core.jsparser import parse_javascript
 from weav.core.comment import remove_comment_delimiter
+import importlib.resources
 
 
 def traverse_node(node, types):
@@ -31,7 +32,8 @@ def process_comments(node, types):
 
 
 def inspect_nodes(node, get_types, types):
-    with open('./config/nodetypes.txt', 'r') as file:
+    with importlib.resources.files('weav.config').joinpath('nodetypes.txt')\
+            .open('r') as file:
         all_nodetypes = [x.strip() for x in file.readlines()]
 
     if get_types:
