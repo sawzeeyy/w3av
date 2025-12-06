@@ -36,9 +36,5 @@ poetry.lock
 # Ignore test results
 tests/__pycache__/
 
-# Ignore test files
-test*.py
-test*.js
-
 # VS Code settings
 .vscode/
