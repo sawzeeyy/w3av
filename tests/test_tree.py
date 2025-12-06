@@ -1,4 +1,3 @@
-import pytest
 from weav.core.jsparser import parse_javascript
 from weav.modes.tree import get_syntax_tree
 

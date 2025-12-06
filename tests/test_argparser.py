@@ -1,7 +1,8 @@
 import pytest
 import sys
+
 from io import StringIO
-from weav.core.argparser import parse_arguments, ArgumentParser
+from weav.core.argparser import parse_arguments
 
 
 def test_argparser_version(monkeypatch):
@@ -58,7 +59,8 @@ def test_argparser_strings_min_validation(monkeypatch):
 def test_argparser_strings_min_max_validation(monkeypatch):
     """Test strings mode validates min < max"""
     test_input = StringIO("const x = 'test';")
-    monkeypatch.setattr(sys, 'argv', ['weav', 'strings', '--min', '10', '--max', '5'])
+    monkeypatch.setattr(sys, 'argv', ['weav', 'strings', '--min', '10',
+                                      '--max', '5'])
     monkeypatch.setattr(sys, 'stdin', test_input)
     monkeypatch.setattr(sys.stdin, 'isatty', lambda: False)
 
@@ -95,7 +97,8 @@ def test_argparser_flag_input(monkeypatch, tmp_path):
     test_file = tmp_path / "test.js"
     test_file.write_text("const y = 10;")
 
-    monkeypatch.setattr(sys, 'argv', ['weav', 'strings', '--input', str(test_file)])
+    monkeypatch.setattr(sys, 'argv', ['weav', 'strings', '--input',
+                                      str(test_file)])
 
     args = parse_arguments()
 

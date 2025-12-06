@@ -1,4 +1,3 @@
-import pytest
 from weav.core.comment import remove_comment_delimiter
 
 

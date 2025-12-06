@@ -1,5 +1,4 @@
 import pytest
-import sys
 from io import StringIO
 from weav.core.output import write_output
 
