@@ -4,6 +4,7 @@ import importlib.resources
 
 from weav.core.jsparser import parse_javascript
 from weav.core.url_utils import is_url_pattern, is_path_pattern
+from weav.core.html import extract_urls_from_html, extract_inline_scripts_from_html
 
 
 # Load MIME types from config file
@@ -40,6 +41,38 @@ def clean_unbalanced_brackets(text):
                 break
 
     return text[:valid_length]
+
+
+def process_html_content(text, placeholder):
+    """
+    Helper function to extract URLs from HTML content and inline scripts.
+    Returns list of URL entries or None if no URLs found.
+    """
+    if not text or '<' not in text or '>' not in text:
+        return None
+
+    results = []
+
+    # Extract URLs from HTML attributes
+    html_urls = extract_urls_from_html(text, placeholder=placeholder, html_parser=html_parser_backend)
+    if html_urls:
+        results.extend(html_urls)
+
+    # Extract inline JavaScript from <script> tags and parse them
+    inline_scripts = extract_inline_scripts_from_html(text, html_parser=html_parser_backend)
+    for script_code in inline_scripts:
+        # Parse the inline JavaScript to extract URLs
+        try:
+            _, script_root_node = parse_javascript(script_code)
+            if script_root_node:
+                # Traverse the inline script's AST directly
+                # URLs will be added to global url_entries
+                traverse_node(script_root_node, placeholder, verbose=False)
+        except Exception:
+            # If parsing fails, skip this inline script
+            pass
+
+    return results if results else None
 
 
 def is_junk_url(text, placeholder='FUZZ'):
@@ -817,6 +850,7 @@ def convert_route_params(text, placeholder='FUZZ'):
 def process_string_literal(node, placeholder):
     """
     Extracts URLs from plain string literals.
+    Also detects HTML content and extracts URLs from HTML attributes.
     """
     if node.type != 'string':
         return None
@@ -824,6 +858,11 @@ def process_string_literal(node, placeholder):
     text = extract_string_value(node)
     if not text:
         return None
+
+    # Check if string contains HTML content
+    html_results = process_html_content(text, placeholder)
+    if html_results:
+        return html_results if len(html_results) > 1 else html_results[0]
 
     # Check if entire string is a URL or path
     if is_url_pattern(text) or is_path_pattern(text):
@@ -924,6 +963,11 @@ def process_template_string(node, placeholder):
     if not has_template:
         resolved = ''.join(all_combinations[0]) if all_combinations else original
         placeholder_str = resolved
+
+        # Check for HTML content first
+        html_results = process_html_content(resolved, placeholder)
+        if html_results:
+            return html_results if len(html_results) > 1 else html_results[0]
 
         if is_url_pattern(original) or is_path_pattern(original):
             return {
@@ -1496,7 +1540,7 @@ def format_output(include_templates, placeholder):
     return results
 
 
-def get_urls(node, placeholder, include_templates, verbose, file_size=0, max_nodes=1000000, max_file_size_mb=1.0):
+def get_urls(node, placeholder, include_templates, verbose, file_size=0, max_nodes=1000000, max_file_size_mb=1.0, html_parser='lxml'):
     """
     Main function - orchestrates the two-pass extraction.
 
@@ -1508,12 +1552,13 @@ def get_urls(node, placeholder, include_templates, verbose, file_size=0, max_nod
     - file_size: Size of input file in bytes (for optimization)
     - max_nodes: Maximum number of AST nodes to visit (default: 1,000,000)
     - max_file_size_mb: Max file size in MB for symbol resolution (default: 1.0)
+    - html_parser: HTML parser backend to use (default: 'lxml')
 
     Returns:
     - List of URLs
     """
     # Reset global state
-    global url_entries, symbol_table, object_table, array_table, seen_urls, node_visit_count, max_nodes_limit, mime_types
+    global url_entries, symbol_table, object_table, array_table, seen_urls, node_visit_count, max_nodes_limit, mime_types, html_parser_backend
     url_entries = []
     symbol_table = {}
     object_table = {}
@@ -1522,6 +1567,7 @@ def get_urls(node, placeholder, include_templates, verbose, file_size=0, max_nod
     node_visit_count = 0
     max_nodes_limit = max_nodes
     mime_types = load_mime_types()
+    html_parser_backend = html_parser
 
     # For large files (>max_file_size_mb), skip symbol table building to avoid hanging
     file_size_mb = file_size / (1024 * 1024)
