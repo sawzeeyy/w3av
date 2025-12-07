@@ -133,6 +133,14 @@ def parse_arguments():
         metavar='MB',
         help='Max file size in MB for symbol resolution'
     )
+    parser_urls.add_argument(
+        '--html-parser',
+        type=str,
+        default='lxml',
+        choices=['lxml', 'html.parser', 'html5lib', 'html5-parser'],
+        metavar='PARSER',
+        help='HTML parser backend (choices: lxml, html.parser, html5lib, html5-parser)'
+    )
 
     # Tree
     parser_tree = add_subparser_with_common_args(
