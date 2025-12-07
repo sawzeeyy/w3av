@@ -6,7 +6,8 @@ authors = ["Shuaib Oladigbolu <shuaib@footstep.ninja>"]
 license = "AGPL-3.0-only"
 readme = "README.md"
 include = [
-	"weav/config/nodetypes.txt"
+	"weav/config/nodetypes.txt",
+	"weav/config/mimetypes.txt"
 ]
 
 [tool.poetry.dependencies]

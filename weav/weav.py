@@ -24,7 +24,8 @@ def main():
             root_node,
             args.placeholder,
             args.include_templates,
-            args.verbose
+            args.verbose,
+            len(args.javascript)
         )
     elif args.mode == 'tree':
         result = get_syntax_tree(

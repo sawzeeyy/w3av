@@ -263,6 +263,6 @@ def parse_arguments():
     # Disable writing to stdout if verbose is enabled in urls mode
     # since urls are printed as they are found
     if args.mode == 'urls' and args.verbose and args.output == sys.stdout:
-        args.stdout = None
+        args.output = None
 
     return args
