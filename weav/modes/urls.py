@@ -940,7 +940,10 @@ def process_template_string(node, placeholder):
     placeholder_str = ''.join(placeholder_parts)
     resolved = ''.join(resolved_parts)
 
-    if is_url_pattern(original) or is_path_pattern(original):
+    # Check if any version (original, placeholder, or resolved) is a URL/path pattern
+    if (is_url_pattern(original) or is_path_pattern(original) or
+        is_url_pattern(placeholder_str) or is_path_pattern(placeholder_str) or
+        is_url_pattern(resolved) or is_path_pattern(resolved)):
         # Check for route parameters in the result and convert them
         _, converted_original, has_route_params = convert_route_params(original, placeholder)
         _, converted_placeholder, _ = convert_route_params(placeholder_str, placeholder)
@@ -989,7 +992,7 @@ def process_binary_expression(node, placeholder):
         elif n.type == 'identifier':
             return [('identifier', n.text.decode('utf8'))]
         elif n.type == 'member_expression':
-            return [('member', n.text.decode('utf8'))]
+            return [('member', n)]  # Pass the node itself, not just text
         elif n.type == 'template_string':
             # Handle template string in concatenation
             result = process_template_string(n, placeholder)
@@ -1034,10 +1037,16 @@ def process_binary_expression(node, placeholder):
                 resolved_parts.append(placeholder)
         elif part_type == 'member':
             has_template = True
-            original_parts.append(f'{{{part_value}}}')
-            # Try to resolve member expression
-            placeholder_parts.append(placeholder)
-            resolved_parts.append(placeholder)
+            member_node = part_value  # part_value is now the node
+            original_parts.append(f'{{{member_node.text.decode("utf8")}}}')
+            # Resolve member expression properly
+            values = resolve_member_expression(member_node, placeholder)
+            if values:
+                placeholder_parts.append(values[0])
+                resolved_parts.append(values[0])
+            else:
+                placeholder_parts.append(placeholder)
+                resolved_parts.append(placeholder)
         elif part_type == 'template':
             has_template = True
             result = part_value
@@ -1130,7 +1139,7 @@ def extract_chained_parts(node, placeholder):
         elif node.type == 'identifier':
             return [('identifier', node.text.decode('utf8'))]
         elif node.type == 'member_expression':
-            return [('member', node.text.decode('utf8'))]
+            return [('member', node)]  # Pass node itself
         else:
             return [('unknown', node.text.decode('utf8'))]
 
@@ -1157,7 +1166,7 @@ def extract_chained_parts(node, placeholder):
         elif obj_node.type == 'identifier':
             parts.append(('identifier', obj_node.text.decode('utf8')))
         elif obj_node.type == 'member_expression':
-            parts.append(('member', obj_node.text.decode('utf8')))
+            parts.append(('member', obj_node))  # Pass node itself
         else:
             parts.append(('unknown', obj_node.text.decode('utf8')))
 
@@ -1173,7 +1182,7 @@ def extract_chained_parts(node, placeholder):
                 elif arg.type == 'identifier':
                     parts.append(('identifier', arg.text.decode('utf8')))
                 elif arg.type == 'member_expression':
-                    parts.append(('member', arg.text.decode('utf8')))
+                    parts.append(('member', arg))  # Pass node itself
                 else:
                     parts.append(('unknown', arg.text.decode('utf8')))
 
@@ -1243,6 +1252,18 @@ def process_concat_call(node, placeholder):
                 val = symbol_table[part_value][0]
                 placeholder_parts.append(val)
                 resolved_parts.append(val)
+            else:
+                placeholder_parts.append(placeholder)
+                resolved_parts.append(placeholder)
+        elif part_type == 'member':
+            has_template = True
+            member_node = part_value  # part_value is now the node
+            original_parts.append(f'{{{member_node.text.decode("utf8")}}}')
+            # Resolve member expression properly
+            values = resolve_member_expression(member_node, placeholder)
+            if values:
+                placeholder_parts.append(values[0])
+                resolved_parts.append(values[0])
             else:
                 placeholder_parts.append(placeholder)
                 resolved_parts.append(placeholder)
