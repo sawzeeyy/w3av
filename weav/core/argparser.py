@@ -119,6 +119,20 @@ def parse_arguments():
         action='store_true',
         help='Print urls as soon as they are discovered'
     )
+    parser_urls.add_argument(
+        '--max-nodes',
+        type=int,
+        default=1000000,
+        metavar='N',
+        help='Maximum number of AST nodes to visit'
+    )
+    parser_urls.add_argument(
+        '--max-file-size',
+        type=float,
+        default=1.0,
+        metavar='MB',
+        help='Max file size in MB for symbol resolution'
+    )
 
     # Tree
     parser_tree = add_subparser_with_common_args(

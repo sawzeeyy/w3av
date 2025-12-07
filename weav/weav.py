@@ -25,7 +25,9 @@ def main():
             args.placeholder,
             args.include_templates,
             args.verbose,
-            len(args.javascript)
+            len(args.javascript),
+            args.max_nodes,
+            args.max_file_size
         )
     elif args.mode == 'tree':
         result = get_syntax_tree(

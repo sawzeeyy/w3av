@@ -5,23 +5,11 @@ import importlib.resources
 from weav.core.jsparser import parse_javascript
 
 
-# Global state (reset on each get_urls() invocation)
-url_entries = []
-symbol_table = {}
-object_table = {}
-array_table = {}
-seen_urls = set()
-node_visit_count = 0
-MAX_NODES = 500000000  # Stop after visiting this many nodes
-
-
 # Load MIME types from config file
 def load_mime_types():
     with importlib.resources.files('weav.config').joinpath('mimetypes.txt')\
             .open('r') as file:
         return set(line.strip() for line in file if line.strip())
-
-MIME_TYPES = load_mime_types()
 
 
 def clean_unbalanced_brackets(text):
@@ -70,7 +58,7 @@ def is_junk_url(text, placeholder='FUZZ'):
 
     # MIME types (exact match or with parameters)
     base_mime = text.split(';')[0].split(',')[0].strip()
-    if base_mime in MIME_TYPES:
+    if base_mime in mime_types:
         return True
 
     # Starts with MIME type pattern
@@ -829,11 +817,11 @@ def build_symbol_table(node, placeholder):
     First pass - recursively traverses AST to collect variable assignments
     and build object structures.
     """
-    global node_visit_count
+    global node_visit_count, max_nodes_limit
     node_visit_count += 1
 
-    if node_visit_count > MAX_NODES:
-        sys.stderr.write(f'\nWarning: Stopped after visiting {MAX_NODES:,} nodes. File may be too large or complex.\n')
+    if node_visit_count > max_nodes_limit:
+        sys.stderr.write(f'\nWarning: Stopped after visiting {max_nodes_limit:,} nodes. File may be too large or complex.\n')
         return
 
     if node.type == 'lexical_declaration' or node.type == 'variable_declaration':
@@ -1512,10 +1500,10 @@ def traverse_node(node, placeholder, verbose):
     """
     Second pass - recursively traverses AST to extract URLs.
     """
-    global node_visit_count
+    global node_visit_count, max_nodes_limit
     node_visit_count += 1
 
-    if node_visit_count > MAX_NODES:
+    if node_visit_count > max_nodes_limit:
         return
 
     # Process current node
@@ -1593,7 +1581,7 @@ def format_output(include_templates, placeholder):
     return results
 
 
-def get_urls(node, placeholder, include_templates, verbose, file_size=0):
+def get_urls(node, placeholder, include_templates, verbose, file_size=0, max_nodes=1000000, max_file_size_mb=1.0):
     """
     Main function - orchestrates the two-pass extraction.
 
@@ -1603,22 +1591,26 @@ def get_urls(node, placeholder, include_templates, verbose, file_size=0):
     - include_templates: Whether to include templated URLs
     - verbose: Print URLs as discovered
     - file_size: Size of input file in bytes (for optimization)
+    - max_nodes: Maximum number of AST nodes to visit (default: 1,000,000)
+    - max_file_size_mb: Max file size in MB for symbol resolution (default: 1.0)
 
     Returns:
     - List of URLs
     """
     # Reset global state
-    global url_entries, symbol_table, object_table, array_table, seen_urls, node_visit_count
+    global url_entries, symbol_table, object_table, array_table, seen_urls, node_visit_count, max_nodes_limit, mime_types
     url_entries = []
     symbol_table = {}
     object_table = {}
     array_table = {}
     seen_urls = set()
     node_visit_count = 0
+    max_nodes_limit = max_nodes
+    mime_types = load_mime_types()
 
-    # For large files (>1MB), skip symbol table building to avoid hanging
+    # For large files (>max_file_size_mb), skip symbol table building to avoid hanging
     file_size_mb = file_size / (1024 * 1024)
-    skip_symbols = file_size_mb > 1.0
+    skip_symbols = file_size_mb > max_file_size_mb
 
     if skip_symbols and verbose:
         sys.stderr.write(f'Large file ({file_size_mb:.1f}MB): Skipping symbol resolution for faster processing.\n')
