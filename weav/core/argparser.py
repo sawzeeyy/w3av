@@ -146,6 +146,11 @@ def parse_arguments():
         action='store_true',
         help='Skip symbol resolution for faster processing (useful for large/complex files)'
     )
+    parser_urls.add_argument(
+        '--skip-aliases',
+        action='store_true',
+        help='Skip semantic alias extraction; use raw variable names in templates'
+    )
 
     # Tree
     parser_tree = add_subparser_with_common_args(

@@ -149,6 +149,474 @@ def consolidate_adjacent_placeholders(text, placeholder='FUZZ'):
     return re.sub(pattern, placeholder, text)
 
 
+def add_alias(var_name, alias, confidence='medium'):
+    """
+    Associates a semantic alias with a variable name.
+
+    Parameters:
+    - var_name: The original variable name (e.g., 't', 'r', 'a')
+    - alias: The meaningful name (e.g., 'contentId', 'orderBy')
+    - confidence: How confident we are in this alias ('high', 'medium', 'low')
+    """
+    if var_name not in alias_table:
+        alias_table[var_name] = []
+
+    # Avoid duplicates
+    for existing in alias_table[var_name]:
+        if existing['alias'] == alias:
+            # Update confidence if higher
+            if confidence == 'high' and existing['confidence'] != 'high':
+                existing['confidence'] = confidence
+            return
+
+    alias_table[var_name].append({
+        'alias': alias,
+        'confidence': confidence
+    })
+
+
+def get_best_alias(var_name):
+    """
+    Returns the most meaningful alias for a variable name.
+
+    Heuristics:
+    1. Prefer high-confidence aliases
+    2. Avoid generic/temporary names (temp, tmp, val, etc.)
+    3. Avoid very generic names (id, key, name, value) - prefer more specific ones
+    4. Prefer names with meaningful suffixes (contentId over id, spaceKey over key)
+    5. Fall back to original variable name if no good alias found
+    """
+    if var_name not in alias_table or not alias_table[var_name]:
+        return var_name
+
+    # Generic patterns to avoid (substrings and full names)
+    generic_patterns = ['temp', 'tmp', 'val', 'test', 'dummy', 'placeholder']
+    generic_single = {'x', 'y', 'z', 'i', 'j', 'k', 'n', 'a', 'b', 'c', 'd', 'e'}
+    # Very generic but valid names - prefer more specific alternatives
+    very_generic = {'id', 'key', 'name', 'title', 'value', 'data', 'item', 'type'}
+
+    # Sort by confidence (high > medium > low)
+    confidence_order = {'high': 3, 'medium': 2, 'low': 1}
+
+    candidates = alias_table[var_name][:]
+
+    # Separate candidates into categories
+    specific_candidates = []      # Best: specific names like 'contentId', 'spaceKey'
+    acceptable_candidates = []    # OK: not generic, not super specific
+    very_generic_candidates = []  # Last resort: 'id', 'key', 'name'
+    generic_candidates = []       # Avoid: 'temp', 'tmp', 'val'
+
+    for candidate in candidates:
+        alias = candidate['alias']
+        alias_lower = alias.lower()
+
+        # Check if it's a generic temporary name
+        is_temp_generic = (
+            alias_lower in generic_single or
+            any(pattern in alias_lower for pattern in generic_patterns)
+        )
+
+        if is_temp_generic:
+            generic_candidates.append(candidate)
+            continue
+
+        # Check if it's very generic but valid
+        if alias_lower in very_generic:
+            very_generic_candidates.append(candidate)
+            continue
+
+        # Check if it's a specific compound name (e.g., contentId, spaceKey)
+        # These have a generic part but are more specific
+        has_generic_part = any(gen in alias_lower for gen in very_generic)
+        if has_generic_part and len(alias) > 4:  # Compound names are longer
+            specific_candidates.append(candidate)
+        else:
+            acceptable_candidates.append(candidate)
+
+    # Try each category in order of preference
+    for category in [specific_candidates, acceptable_candidates, very_generic_candidates, generic_candidates]:
+        if category:
+            # Within category, sort by confidence then by length (shorter better for similar confidence)
+            category.sort(
+                key=lambda x: (confidence_order.get(x['confidence'], 0), -len(x['alias'])),
+                reverse=True
+            )
+            return category[0]['alias']
+
+    return var_name
+
+
+def extract_local_aliases(node, variables_to_find):
+    """
+    Extracts aliases from the local context (current function scope or nearby nodes).
+    This is called during pass 2 when we encounter template strings/concatenations.
+
+    Parameters:
+    - node: The current AST node (template_string, binary_expression, etc.)
+    - variables_to_find: Set of variable names we want to find aliases for
+
+    Returns:
+    - Dictionary mapping variable names to their best local alias
+    """
+    # If semantic aliases are disabled, return empty dict (use raw variable names)
+    global disable_semantic_aliases
+    if disable_semantic_aliases:
+        return {}
+
+    # Collect ALL possible aliases for each variable first
+    all_aliases = {}  # var_name -> list of aliases
+
+    # Walk up the tree to find the enclosing function or block
+    current = node.parent
+    max_depth = 15  # Increased to allow scanning more context
+    depth = 0
+
+    while current and depth < max_depth:
+        depth += 1
+
+        # Look for function parameters with destructuring
+        if current.type in ['arrow_function', 'function_declaration', 'function', 'method_definition']:
+            # Check parameters for destructuring patterns
+            if current.type == 'arrow_function':
+                # Arrow functions can have parameters directly or in a formal_parameters node
+                for child in current.named_children:
+                    if child.type == 'formal_parameters':
+                        for param in child.named_children:
+                            if param.type == 'object_pattern':
+                                _collect_aliases_from_pattern(param, variables_to_find, all_aliases)
+                    elif child.type == 'object_pattern':
+                        _collect_aliases_from_pattern(child, variables_to_find, all_aliases)
+            else:
+                # Regular function - look for formal_parameters
+                params_node = current.child_by_field_name('parameters')
+                if params_node:
+                    for param in params_node.named_children:
+                        if param.type == 'object_pattern':
+                            _collect_aliases_from_pattern(param, variables_to_find, all_aliases)
+
+        # Look for nearby patterns in the same block or program
+        if current.type in ['statement_block', 'program']:
+            for sibling in current.named_children:
+                # Check variable declarations with object literals
+                if sibling.type in ['lexical_declaration', 'variable_declaration']:
+                    for declarator in sibling.named_children:
+                        if declarator.type == 'variable_declarator':
+                            value = declarator.child_by_field_name('value')
+                            # Object literal: const obj = { id: x }
+                            if value and value.type == 'object':
+                                _collect_aliases_from_pattern(value, variables_to_find, all_aliases)
+                            # Destructuring: const {id: x} = obj
+                            elif value and value.type == 'object_pattern':
+                                _collect_aliases_from_pattern(value, variables_to_find, all_aliases)
+                            # Check if the name itself is a destructuring pattern
+                            name = declarator.child_by_field_name('name')
+                            if name and name.type == 'object_pattern':
+                                _collect_aliases_from_pattern(name, variables_to_find, all_aliases)
+
+                # Check for FormData.append() calls
+                if sibling.type == 'expression_statement':
+                    # expression_statement doesn't have 'expression' field, use first named child
+                    named_children = sibling.named_children
+                    if named_children:
+                        expr = named_children[0]
+                        if expr.type == 'call_expression':
+                            # Check if it's formData.append('key', value)
+                            func_node = expr.child_by_field_name('function')
+                            if func_node and func_node.type == 'member_expression':
+                                prop = func_node.child_by_field_name('property')
+                                if prop and prop.text.decode('utf8') == 'append':
+                                    # Get arguments
+                                    args_node = expr.child_by_field_name('arguments')
+                                    if args_node:
+                                        args = [c for c in args_node.named_children]
+                                        if len(args) >= 2:
+                                            # First arg is the key (string)
+                                            # Second arg is the value (could be variable)
+                                            key_node = args[0]
+                                            value_node = args[1]
+
+                                            if key_node.type == 'string' and value_node.type == 'identifier':
+                                                key = extract_string_value(key_node)
+                                                var_name = value_node.text.decode('utf8')
+                                                if var_name in variables_to_find:
+                                                    if var_name not in all_aliases:
+                                                        all_aliases[var_name] = []
+                                                    all_aliases[var_name].append(key)
+
+                # Check for URLSearchParams constructor: new URLSearchParams({key: value})
+                if sibling.type in ['lexical_declaration', 'variable_declaration']:
+                    for declarator in sibling.named_children:
+                        if declarator.type == 'variable_declarator':
+                            value = declarator.child_by_field_name('value')
+                            if value and value.type == 'new_expression':
+                                # Check if it's URLSearchParams
+                                constructor = value.child_by_field_name('constructor')
+                                if constructor and constructor.text.decode('utf8') == 'URLSearchParams':
+                                    args_node = value.child_by_field_name('arguments')
+                                    if args_node:
+                                        args = [c for c in args_node.named_children]
+                                        if args and args[0].type == 'object':
+                                            _collect_aliases_from_pattern(args[0], variables_to_find, all_aliases)
+
+        current = current.parent
+
+    # Now choose the best alias for each variable from all collected aliases
+    return _choose_best_aliases(all_aliases)
+
+
+def _collect_aliases_from_pattern(pattern_node, variables_to_find, all_aliases_dict):
+    """
+    Helper to collect aliases from an object literal or destructuring pattern.
+    Appends to the list of aliases for each variable.
+    """
+    if pattern_node.type not in ['object', 'object_pattern']:
+        return
+
+    for pair in pattern_node.named_children:
+        if pair.type in ['pair', 'pair_pattern']:
+            key_node = pair.child_by_field_name('key')
+            value_node = pair.child_by_field_name('value')
+
+            if not key_node or not value_node:
+                continue
+
+            # Get property name (the alias)
+            prop_name = key_node.text.decode('utf8').strip('"\'')
+
+            # Check if value is an identifier we care about
+            if value_node.type == 'identifier':
+                var_name = value_node.text.decode('utf8')
+                if var_name in variables_to_find:
+                    if var_name not in all_aliases_dict:
+                        all_aliases_dict[var_name] = []
+                    all_aliases_dict[var_name].append(prop_name)
+
+
+def _choose_best_aliases(all_aliases):
+    """
+    Given a dict of variable_name -> [list of aliases], choose the best alias for each.
+    Returns a dict of variable_name -> best_alias.
+    """
+    result = {}
+
+    for var_name, alias_list in all_aliases.items():
+        if not alias_list:
+            continue
+
+        # If only one alias, use it
+        if len(alias_list) == 1:
+            result[var_name] = alias_list[0]
+            continue
+
+        # Multiple aliases - pick the best one using heuristics
+        generic_patterns = {'temp', 'value', 'data', 'var', 'val', 'item'}
+
+        def score_alias(alias):
+            """Lower score is better."""
+            score = len(alias)  # Start with length
+
+            # Check if it's generic
+            lower_alias = alias.lower()
+            if any(pattern in lower_alias for pattern in generic_patterns):
+                score += 100  # Heavily penalize generic names
+
+            # Reward common meaningful suffixes/prefixes
+            if any(pattern in lower_alias for pattern in ['id', 'key', 'name', 'code', 'type', 'status']):
+                score -= 5
+
+            return score
+
+        # Sort by score and pick the best (lowest score)
+        best_alias = min(alias_list, key=score_alias)
+        result[var_name] = best_alias
+
+    return result
+
+
+def _extract_aliases_from_pattern(pattern_node, variables_to_find, aliases_dict):
+    """
+    DEPRECATED: Use _collect_aliases_from_pattern() instead.
+    This is kept for backward compatibility but should not be used.
+
+    Helper to extract aliases from an object literal or destructuring pattern.
+    Only extracts for variables in variables_to_find set.
+
+    When multiple aliases are found for the same variable, we use heuristics to pick the best one:
+    - Prefer shorter names (likely more meaningful)
+    - Prefer names that don't look generic (temp, value, data, etc.)
+    """
+    if pattern_node.type not in ['object', 'object_pattern']:
+        return
+
+    # Collect all aliases for each variable
+    temp_aliases = {}  # var_name -> list of aliases
+
+    for pair in pattern_node.named_children:
+        if pair.type in ['pair', 'pair_pattern']:
+            key_node = pair.child_by_field_name('key')
+            value_node = pair.child_by_field_name('value')
+
+            if not key_node or not value_node:
+                continue
+
+            # Get property name (the alias)
+            prop_name = key_node.text.decode('utf8').strip('"\'')
+
+            # Check if value is an identifier we care about
+            if value_node.type == 'identifier':
+                var_name = value_node.text.decode('utf8')
+                if var_name in variables_to_find:
+                    if var_name not in temp_aliases:
+                        temp_aliases[var_name] = []
+                    temp_aliases[var_name].append(prop_name)
+
+    # Now choose the best alias for each variable
+    for var_name, alias_list in temp_aliases.items():
+        if not alias_list:
+            continue
+
+        # If only one alias, use it
+        if len(alias_list) == 1:
+            aliases_dict[var_name] = alias_list[0]
+            continue
+
+        # Multiple aliases - pick the best one
+        # Heuristics:
+        # 1. Avoid generic names (temp, value, data, etc.)
+        # 2. Prefer shorter names
+        # 3. Prefer names with meaningful prefixes (id, key, name, etc.)
+
+        generic_patterns = {'temp', 'value', 'data', 'var', 'val', 'item'}
+
+        def score_alias(alias):
+            """Lower score is better."""
+            score = len(alias)  # Start with length
+
+            # Check if it's generic
+            lower_alias = alias.lower()
+            if any(pattern in lower_alias for pattern in generic_patterns):
+                score += 100  # Heavily penalize generic names
+
+            # Reward common meaningful suffixes/prefixes
+            if any(pattern in lower_alias for pattern in ['id', 'key', 'name', 'code', 'type', 'status']):
+                score -= 5
+
+            return score
+
+        # Sort by score and pick the best (lowest score)
+        best_alias = min(alias_list, key=score_alias)
+        aliases_dict[var_name] = best_alias
+
+
+def extract_aliases_from_object(obj_node, context_vars=None):
+    """
+    Scans an object literal or destructuring pattern for property-value pairs
+    where values are identifiers.
+    Associates property names (aliases) with the variable names (values).
+
+    Example: { contentId: t, orderBy: r } → t gets alias 'contentId', r gets 'orderBy'
+    Also works with destructuring: const {contentId: t} = obj → t gets alias 'contentId'
+
+    Parameters:
+    - obj_node: AST node of type 'object' or 'object_pattern'
+    - context_vars: Optional set of variable names to look for (for scoping)
+    """
+    if obj_node.type not in ['object', 'object_pattern']:
+        return
+
+    for pair in obj_node.named_children:
+        # Handle both regular pairs and destructuring pairs
+        if pair.type in ['pair', 'pair_pattern']:
+            key_node = pair.child_by_field_name('key')
+            value_node = pair.child_by_field_name('value')
+
+            if not key_node or not value_node:
+                continue
+
+            # Get property name (the alias)
+            prop_name = key_node.text.decode('utf8').strip('"\'')
+
+            # Check if value is an identifier (variable reference)
+            if value_node.type == 'identifier':
+                var_name = value_node.text.decode('utf8')
+
+                # Only add if we care about this variable (if context_vars specified)
+                if context_vars is None or var_name in context_vars:
+                    add_alias(var_name, prop_name, confidence='high')
+
+            # Handle shorthand property notation: { contentId } → { contentId: contentId }
+            elif value_node.type in ['shorthand_property_identifier', 'shorthand_property_identifier_pattern']:
+                var_name = value_node.text.decode('utf8')
+                if context_vars is None or var_name in context_vars:
+                    # In shorthand, the property name IS the variable name, so no alias needed
+                    pass
+
+
+def scan_for_urlsearchparams(node, context_vars=None):
+    """
+    Detects URLSearchParams or FormData patterns and extracts aliases.
+
+    Examples:
+    - new URLSearchParams({ key: t }) → t gets alias 'key'
+    - params.append('key', t) → t gets alias 'key'
+    - new FormData().append('userId', u) → u gets alias 'userId'
+    """
+    if node.type == 'new_expression':
+        # new URLSearchParams({ ... }) or new FormData()
+        constructor = node.child_by_field_name('constructor')
+        if constructor:
+            constructor_name = constructor.text.decode('utf8')
+            if constructor_name in ['URLSearchParams', 'FormData']:
+                args_node = node.child_by_field_name('arguments')
+                if args_node and args_node.named_child_count > 0:
+                    first_arg = args_node.named_child(0)
+                    if first_arg.type == 'object':
+                        extract_aliases_from_object(first_arg, context_vars)
+
+    elif node.type == 'call_expression':
+        # params.append('key', value) or params.set('key', value)
+        func_node = node.child_by_field_name('function')
+        if func_node and func_node.type == 'member_expression':
+            prop = func_node.child_by_field_name('property')
+            if prop and prop.text.decode('utf8') in ['append', 'set']:
+                args_node = node.child_by_field_name('arguments')
+                if args_node and args_node.named_child_count >= 2:
+                    key_arg = args_node.named_child(0)
+                    value_arg = args_node.named_child(1)
+
+                    # Extract key name from string literal
+                    if key_arg.type == 'string':
+                        key_name = extract_string_value(key_arg)
+                        if key_name and value_arg.type == 'identifier':
+                            var_name = value_arg.text.decode('utf8')
+                            if context_vars is None or var_name in context_vars:
+                                add_alias(var_name, key_name, confidence='high')
+
+
+def scan_sibling_nodes_for_aliases(parent_node, var_name):
+    """
+    Scans sibling nodes in the same statement/declaration for alias hints.
+    This catches patterns like:
+
+    const t = '123';
+    const params = { contentId: t };
+    """
+    if not parent_node:
+        return
+
+    # Look at siblings in variable declarations
+    for sibling in parent_node.named_children:
+        if sibling.type == 'variable_declarator':
+            value_node = sibling.child_by_field_name('value')
+            if value_node:
+                # Check for object literals
+                if value_node.type == 'object':
+                    extract_aliases_from_object(value_node, {var_name})
+                # Check for URLSearchParams/FormData
+                elif value_node.type in ['new_expression', 'call_expression']:
+                    scan_for_urlsearchparams(value_node, {var_name})
+
+
 def extract_string_value(node):
     """
     Extracts clean string value from AST string node (removes quotes).
@@ -560,12 +1028,16 @@ def collect_array_elements(node, array_name, placeholder):
 def collect_object_properties(node, obj_name, placeholder):
     """
     Recursively processes object literals and populates object_table.
+    Also extracts semantic aliases from property-value pairs.
     """
     if node.type != 'object':
         return
 
     if obj_name not in object_table:
         object_table[obj_name] = {}
+
+    # Extract aliases from this object literal
+    extract_aliases_from_object(node)
 
     for child in node.named_children:
         if child.type == 'pair':
@@ -696,15 +1168,19 @@ def collect_object_assignment(node, placeholder):
 def collect_variable_assignment(node, placeholder):
     """
     Processes variable declarators and appends their values to symbol_table.
+    Also scans for semantic aliases from nearby object literals.
     """
     var_name = None
     value_node = None
+    parent_node = None
 
     if node.type == 'variable_declarator':
         name_node = node.child_by_field_name('name')
         value_node = node.child_by_field_name('value')
         if name_node:
             var_name = name_node.text.decode('utf8')
+        # Get parent to scan siblings
+        parent_node = node.parent
     elif node.type == 'assignment_expression':
         left_node = node.child_by_field_name('left')
         if left_node and left_node.type == 'identifier':
@@ -738,9 +1214,15 @@ def collect_variable_assignment(node, placeholder):
         values = resolve_subscript_expression(value_node, placeholder)
     elif value_node.type == 'array':
         collect_array_elements(value_node, var_name, placeholder)
+        # Scan siblings for aliases
+        if parent_node:
+            scan_sibling_nodes_for_aliases(parent_node, var_name)
         return
     elif value_node.type == 'object':
         collect_object_properties(value_node, var_name, placeholder)
+        # Scan siblings for aliases
+        if parent_node:
+            scan_sibling_nodes_for_aliases(parent_node, var_name)
         return
     elif value_node.type == 'call_expression':
         # Check for .join() or .replace()
@@ -758,6 +1240,10 @@ def collect_variable_assignment(node, placeholder):
     for val in values:
         if val and val not in symbol_table[var_name]:
             symbol_table[var_name].append(val)
+
+    # Scan sibling nodes for semantic aliases
+    if parent_node:
+        scan_sibling_nodes_for_aliases(parent_node, var_name)
 
 
 def build_symbol_table(node, placeholder):
@@ -910,9 +1396,33 @@ def process_template_string(node, placeholder):
     """
     Handles template literals with ${} substitutions.
     Generates all combinations when variables have multiple values.
+    Uses local context to extract semantic aliases for better parameter names.
     """
     if node.type != 'template_string':
         return None
+
+    # First, collect all variables used in this template
+    variables_in_template = set()
+    for child in node.named_children:
+        if child.type == 'template_substitution':
+            expr = child.named_child(0)
+            if expr and expr.type == 'identifier':
+                variables_in_template.add(expr.text.decode('utf8'))
+            elif expr and expr.type == 'member_expression':
+                # Get base variable from member expression
+                base_var = None
+                current = expr
+                while current and current.type == 'member_expression':
+                    obj_node = current.child_by_field_name('object')
+                    if obj_node and obj_node.type == 'identifier':
+                        base_var = obj_node.text.decode('utf8')
+                        break
+                    current = obj_node
+                if base_var:
+                    variables_in_template.add(base_var)
+
+    # Extract local aliases for these variables
+    local_aliases = extract_local_aliases(node, variables_in_template)
 
     # Store parts as lists of possible values for generating combinations
     original_parts = []
@@ -931,8 +1441,33 @@ def process_template_string(node, placeholder):
             expr = child.named_child(0)
             if expr:
                 expr_text = expr.text.decode('utf8')
+
+                # Use local context alias if available
+                display_name = expr_text
+                if expr.type == 'identifier':
+                    var_name = expr_text
+                    # Use local alias if found, otherwise use variable name
+                    display_name = local_aliases.get(var_name, var_name)
+                elif expr.type == 'member_expression':
+                    # For member expressions, try to use alias for base variable
+                    base_var = None
+                    current = expr
+                    while current and current.type == 'member_expression':
+                        obj_node = current.child_by_field_name('object')
+                        if obj_node and obj_node.type == 'identifier':
+                            base_var = obj_node.text.decode('utf8')
+                            break
+                        current = obj_node
+
+                    if base_var:
+                        # Try to use local alias for base variable
+                        alias = local_aliases.get(base_var, base_var)
+                        if alias != base_var:
+                            # Replace base variable name with alias in member expression
+                            display_name = expr_text.replace(base_var, alias, 1)
+
                 # Normalize to {var} format (not ${var})
-                original_parts.append(f'{{{expr_text}}}')
+                original_parts.append(f'{{{display_name}}}')
 
                 # Try to resolve - collect ALL possible values
                 values = []
@@ -1063,6 +1598,25 @@ def process_binary_expression(node, placeholder):
 
     parts = extract_concat_parts(node)
 
+    # Collect all variables used in the concatenation for alias extraction
+    variables_in_concat = set()
+    for part_type, part_value in parts:
+        if part_type == 'identifier':
+            variables_in_concat.add(part_value)
+        elif part_type == 'member':
+            # Extract base variable from member expression
+            member_node = part_value
+            current = member_node
+            while current and current.type == 'member_expression':
+                obj_node = current.child_by_field_name('object')
+                if obj_node and obj_node.type == 'identifier':
+                    variables_in_concat.add(obj_node.text.decode('utf8'))
+                    break
+                current = obj_node
+
+    # Extract local aliases for variables used in this concatenation
+    local_aliases = extract_local_aliases(node, variables_in_concat)
+
     original_parts = []
     placeholder_parts = []
     resolved_parts = []
@@ -1075,7 +1629,9 @@ def process_binary_expression(node, placeholder):
             resolved_parts.append(part_value)
         elif part_type == 'identifier':
             has_template = True
-            original_parts.append(f'{{{part_value}}}')
+            # Use local alias for better template names
+            display_name = local_aliases.get(part_value, part_value)
+            original_parts.append(f'{{{display_name}}}')
             if part_value in symbol_table and symbol_table[part_value]:
                 resolved_val = symbol_table[part_value][0]
                 placeholder_parts.append(resolved_val)
@@ -1086,7 +1642,25 @@ def process_binary_expression(node, placeholder):
         elif part_type == 'member':
             has_template = True
             member_node = part_value  # part_value is now the node
-            original_parts.append(f'{{{member_node.text.decode("utf8")}}}')
+            # Extract base variable and apply local alias
+            base_var = None
+            current = member_node
+            while current and current.type == 'member_expression':
+                obj_node = current.child_by_field_name('object')
+                if obj_node and obj_node.type == 'identifier':
+                    base_var = obj_node.text.decode('utf8')
+                    break
+                current = obj_node
+
+            member_text = member_node.text.decode('utf8')
+            if base_var:
+                # Try to use local alias for base variable
+                alias = local_aliases.get(base_var, base_var)
+                if alias != base_var:
+                    # Replace base variable name with alias in member expression
+                    member_text = member_text.replace(base_var, alias, 1)
+
+            original_parts.append(f'{{{member_text}}}')
             # Resolve member expression properly
             values = resolve_member_expression(member_node, placeholder)
             if values:
@@ -1540,7 +2114,7 @@ def format_output(include_templates, placeholder):
     return results
 
 
-def get_urls(node, placeholder, include_templates, verbose, file_size=0, max_nodes=1000000, max_file_size_mb=1.0, html_parser='lxml', skip_symbols=False):
+def get_urls(node, placeholder, include_templates, verbose, file_size=0, max_nodes=1000000, max_file_size_mb=1.0, html_parser='lxml', skip_symbols=False, skip_aliases=False):
     """
     Main function - orchestrates the two-pass extraction.
 
@@ -1554,21 +2128,24 @@ def get_urls(node, placeholder, include_templates, verbose, file_size=0, max_nod
     - max_file_size_mb: Max file size in MB for symbol resolution (default: 1.0)
     - html_parser: HTML parser backend to use (default: 'lxml')
     - skip_symbols: Skip symbol resolution entirely (default: False)
+    - skip_aliases: Skip semantic alias extraction (default: False)
 
     Returns:
     - List of URLs
     """
     # Reset global state
-    global url_entries, symbol_table, object_table, array_table, seen_urls, node_visit_count, max_nodes_limit, mime_types, html_parser_backend
+    global url_entries, symbol_table, object_table, array_table, seen_urls, node_visit_count, max_nodes_limit, mime_types, html_parser_backend, alias_table, disable_semantic_aliases
     url_entries = []
     symbol_table = {}
     object_table = {}
     array_table = {}
+    alias_table = {}  # Track semantic aliases for variable names
     seen_urls = set()
     node_visit_count = 0
     max_nodes_limit = max_nodes
     mime_types = load_mime_types()
     html_parser_backend = html_parser
+    disable_semantic_aliases = skip_aliases  # Control semantic alias extraction
 
     # For large files (>max_file_size_mb), skip symbol table building to avoid hanging
     # Also skip if user explicitly requested via --skip-symbols

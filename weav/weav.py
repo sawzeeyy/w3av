@@ -29,7 +29,8 @@ def main():
             args.max_nodes,
             args.max_file_size,
             args.html_parser,
-            args.skip_symbols
+            args.skip_symbols,
+            args.skip_aliases
         )
     elif args.mode == 'tree':
         result = get_syntax_tree(

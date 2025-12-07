@@ -768,6 +768,183 @@ class TestLargeFileOptimization:
         assert len(urls) > 0
 
 
+class TestSemanticAliases:
+    """Test semantic alias extraction feature."""
+
+    @staticmethod
+    def extract_urls(js_code):
+        """Helper to extract URLs from JavaScript code."""
+        from tree_sitter import Parser, Language
+        import tree_sitter_javascript
+
+        JS_LANGUAGE = Language(tree_sitter_javascript.language())
+        parser = Parser(JS_LANGUAGE)
+        tree = parser.parse(bytes(js_code, 'utf8'))
+        return get_urls(
+            node=tree.root_node,
+            placeholder='FUZZ',
+            include_templates=True,
+            verbose=False
+        )
+
+    def test_object_literal_aliases(self):
+        """Test extraction of aliases from object literals."""
+        js_code = """
+        const t = '123';
+        const r = 'date';
+        const params = { contentId: t, orderBy: r };
+        const url = `/api/content/${t}?sort=${r}`;
+        """
+
+        urls = self.extract_urls(js_code)
+
+        # Should use semantic names from object literal
+        assert any('{contentId}' in url for url in urls), \
+            "Expected {contentId} in template output"
+        assert any('{orderBy}' in url for url in urls), \
+            "Expected {orderBy} in template output"
+
+        # Should NOT use generic variable names when alias exists
+        template_urls = [u for u in urls if '{' in u and '}' in u and 'FUZZ' not in u]
+        assert not any('{t}' in url for url in template_urls), \
+            "Should not use {t} when {contentId} alias exists"
+        assert not any('{r}' in url for url in template_urls), \
+            "Should not use {r} when {orderBy} alias exists"
+
+    def test_urlsearchparams_aliases(self):
+        """Test extraction of aliases from URLSearchParams constructor."""
+        js_code = """
+        const userId = '456';
+        const params = new URLSearchParams({ userId: userId });
+        const url = `/api/user/${userId}`;
+        """
+
+        urls = self.extract_urls(js_code)
+
+        # Should preserve semantic name
+        assert any('{userId}' in url for url in urls), \
+            "Expected {userId} in template output"
+
+    def test_concatenation_with_aliases(self):
+        """Test that aliases work in binary expressions (concatenation)."""
+        js_code = """
+        const id = '789';
+        const obj = { postId: id };
+        const url = '/api/posts/' + id;
+        """
+
+        urls = self.extract_urls(js_code)
+
+        # Should use semantic name from object literal
+        assert any('{postId}' in url for url in urls), \
+            "Expected {postId} in concatenated URL"
+
+    def test_multiple_aliases_same_variable(self):
+        """Test that best alias is chosen when variable appears in multiple contexts."""
+        js_code = """
+        const x = '123';
+        const obj1 = { id: x };
+        const obj2 = { tempValue: x };
+        const url = `/api/item/${x}`;
+        """
+
+        urls = self.extract_urls(js_code)
+
+        # Should prefer 'id' over 'tempValue' (shorter, less generic)
+        template_urls = [u for u in urls if '{' in u and '}' in u and 'FUZZ' not in u]
+        assert any('{id}' in url for url in template_urls), \
+            "Expected {id} to be chosen as best alias"
+
+    def test_no_alias_fallback(self):
+        """Test that original variable name is used when no alias exists."""
+        js_code = """
+        const mySpecialId = '123';
+        const url = `/api/item/${mySpecialId}`;
+        """
+
+        urls = self.extract_urls(js_code)
+
+        # Should use original variable name when no alias
+        assert any('{mySpecialId}' in url for url in urls), \
+            "Expected {mySpecialId} when no alias exists"
+
+    def test_formdata_aliases(self):
+        """Test extraction of aliases from FormData.append() calls."""
+        js_code = """
+        const u = '123';
+        const formData = new FormData();
+        formData.append('userId', u);
+        const url = `/api/user/${u}`;
+        """
+
+        urls = self.extract_urls(js_code)
+
+        # Should extract alias from FormData.append
+        assert any('{userId}' in url for url in urls), \
+            "Expected {userId} from FormData.append pattern"
+
+    def test_member_expression_with_alias(self):
+        """Test that member expressions use aliases for base variable."""
+        js_code = """
+        const c = { id: '123', name: 'test' };
+        const obj = { config: c };
+        const url = `/api/item/${c.id}`;
+        """
+
+        urls = self.extract_urls(js_code)
+
+        # Should use alias for base variable in member expression
+        assert any('{config.id}' in url for url in urls), \
+            "Expected {config.id} using alias for base variable"
+
+    def test_skip_aliases_flag(self):
+        """Test that --skip-aliases flag disables semantic alias extraction."""
+        from tree_sitter import Parser, Language
+        import tree_sitter_javascript
+
+        js_code = """
+        const t = '123';
+        const params = { contentId: t };
+        const url = `/api/content/${t}`;
+        """
+
+        JS_LANGUAGE = Language(tree_sitter_javascript.language())
+        parser = Parser(JS_LANGUAGE)
+        tree = parser.parse(bytes(js_code, 'utf8'))
+
+        # With semantic aliases (default)
+        urls_with_aliases = get_urls(
+            node=tree.root_node,
+            placeholder='FUZZ',
+            include_templates=True,
+            verbose=False,
+            skip_aliases=False
+        )
+
+        # Without semantic aliases
+        urls_without_aliases = get_urls(
+            node=tree.root_node,
+            placeholder='FUZZ',
+            include_templates=True,
+            verbose=False,
+            skip_aliases=True
+        )
+
+        # With aliases: should see {contentId}
+        assert any('{contentId}' in url for url in urls_with_aliases), \
+            f"Expected {{contentId}} with aliases enabled, got: {urls_with_aliases}"
+
+        # Without aliases: should see {t}
+        assert any('{t}' in url for url in urls_without_aliases), \
+            f"Expected {{t}} with aliases disabled, got: {urls_without_aliases}"
+
+        # Ensure we DON'T see the opposite
+        assert not any('{t}' in url for url in urls_with_aliases), \
+            f"Should not see {{t}} with aliases enabled"
+        assert not any('{contentId}' in url for url in urls_without_aliases), \
+            f"Should not see {{contentId}} with aliases disabled"
+
+
 class TestSkipSymbols:
     """Test --skip-symbols functionality."""
 
