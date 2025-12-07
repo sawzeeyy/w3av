@@ -180,6 +180,8 @@ def is_path_pattern(text):
 
     Matches:
     - Absolute paths: /api/users, /profile (minimum 2 chars after /)
+    - Paths with query strings: /cgraphql?q=SessionDataQuery
+    - Paths with fragments: /page#section
     - Relative paths: ./file, ../dir
     - API paths: api/users, v1/endpoint
 
@@ -195,7 +197,8 @@ def is_path_pattern(text):
     if text.startswith('//'):
         return False
 
-    # Absolute paths (minimum 2 chars after /)
+    # Absolute paths (minimum 2 chars after /, allowing query/fragment)
+    # Match: /path, /path/more, /path?query, /path#hash, /path?q#h
     if re.match(r'^/[a-zA-Z0-9_-]{2,}', text):
         return True
 
@@ -447,7 +450,10 @@ def resolve_replace_call(node, placeholder='FUZZ'):
 
 def resolve_binary_expression(node, placeholder='FUZZ'):
     """
-    Resolves binary + concatenations.
+    Resolves binary expressions:
+    - + operator: string concatenation
+    - || operator: logical OR (returns right side as fallback)
+    - && operator: logical AND (returns right side as result)
 
     Returns list of possible values.
     """
@@ -455,13 +461,58 @@ def resolve_binary_expression(node, placeholder='FUZZ'):
         return None
 
     op = node.child_by_field_name('operator')
-    if not op or op.text.decode('utf8') != '+':
+    if not op:
         return None
+
+    operator = op.text.decode('utf8')
+
+    left_node = node.child_by_field_name('left')
+    right_node = node.child_by_field_name('right')
 
     left_node = node.child_by_field_name('left')
     right_node = node.child_by_field_name('right')
 
     if not left_node or not right_node:
+        return None
+
+    # Handle logical OR (||) - return right side (fallback value)
+    # e.g., window.GLOBAL_URI || "/default" -> ["/default"]
+    if operator == '||':
+        # For OR expressions, we return the right side (fallback)
+        # since we can't evaluate the left side at static analysis time
+        if right_node.type == 'string':
+            val = extract_string_value(right_node)
+            if val is not None:
+                return [val]
+        elif right_node.type == 'identifier':
+            var_name = right_node.text.decode('utf8')
+            if var_name in symbol_table:
+                return symbol_table[var_name]
+        elif right_node.type == 'member_expression':
+            return resolve_member_expression(right_node, placeholder)
+        # For any other type, return placeholder
+        return [placeholder]
+
+    # Handle logical AND (&&) - return right side (result value)
+    # e.g., config && config.url -> [config.url value]
+    if operator == '&&':
+        # For AND expressions, we return the right side (result)
+        # assuming the left side is truthy
+        if right_node.type == 'string':
+            val = extract_string_value(right_node)
+            if val is not None:
+                return [val]
+        elif right_node.type == 'identifier':
+            var_name = right_node.text.decode('utf8')
+            if var_name in symbol_table:
+                return symbol_table[var_name]
+        elif right_node.type == 'member_expression':
+            return resolve_member_expression(right_node, placeholder)
+        # For any other type, return placeholder
+        return [placeholder]
+
+    # Handle concatenation (+) - only for this operator do we combine left and right
+    if operator != '+':
         return None
 
     # Resolve left side
@@ -916,21 +967,23 @@ def process_string_literal(node, placeholder):
 def process_template_string(node, placeholder):
     """
     Handles template literals with ${} substitutions.
+    Generates all combinations when variables have multiple values.
     """
     if node.type != 'template_string':
         return None
 
+    # Store parts as lists of possible values for generating combinations
     original_parts = []
-    placeholder_parts = []
-    resolved_parts = []
+    resolved_parts_lists = []  # List of lists - each inner list is possible values for that position
     has_template = False
 
     for child in node.named_children:
         if child.type == 'string_fragment':
             text = child.text.decode('utf8')
-            original_parts.append(text)
-            placeholder_parts.append(text)
-            resolved_parts.append(text)
+            # Convert route parameters in literal fragments before adding to parts
+            _, converted_text, _ = convert_route_params(text, placeholder)
+            original_parts.append(converted_text)
+            resolved_parts_lists.append([converted_text])  # Single value - the literal text
         elif child.type == 'template_substitution':
             has_template = True
             expr = child.named_child(0)
@@ -939,68 +992,81 @@ def process_template_string(node, placeholder):
                 # Normalize to {var} format (not ${var})
                 original_parts.append(f'{{{expr_text}}}')
 
-                # Try to resolve
+                # Try to resolve - collect ALL possible values
+                values = []
                 if expr.type == 'identifier':
                     var_name = expr_text
                     if var_name in symbol_table and symbol_table[var_name]:
-                        resolved_parts.append(symbol_table[var_name][0])
-                        placeholder_parts.append(symbol_table[var_name][0])
+                        # Use ALL values to generate all combinations
+                        values = symbol_table[var_name][:]
                     else:
-                        resolved_parts.append(placeholder)
-                        placeholder_parts.append(placeholder)
+                        values = [placeholder]
                 elif expr.type == 'member_expression':
-                    values = resolve_member_expression(expr, placeholder)
-                    if values:
-                        resolved_parts.append(values[0])
-                        placeholder_parts.append(values[0])
-                    else:
-                        resolved_parts.append(placeholder)
-                        placeholder_parts.append(placeholder)
+                    resolved = resolve_member_expression(expr, placeholder)
+                    values = resolved if resolved else [placeholder]
                 else:
-                    resolved_parts.append(placeholder)
-                    placeholder_parts.append(placeholder)
+                    values = [placeholder]
 
+                resolved_parts_lists.append(values)
+
+    # Generate original template string with {var} syntax
     original = ''.join(original_parts)
-    placeholder_str = ''.join(placeholder_parts)
-    resolved = ''.join(resolved_parts)
 
-    # Check if any version (original, placeholder, or resolved) is a URL/path pattern
-    if (is_url_pattern(original) or is_path_pattern(original) or
-        is_url_pattern(placeholder_str) or is_path_pattern(placeholder_str) or
-        is_url_pattern(resolved) or is_path_pattern(resolved)):
-        # Check for route parameters in the result and convert them
-        _, converted_original, has_route_params = convert_route_params(original, placeholder)
-        _, converted_placeholder, _ = convert_route_params(placeholder_str, placeholder)
-        _, converted_resolved, _ = convert_route_params(resolved, placeholder)
+    # Generate all combinations of resolved values
+    from itertools import product
 
-        if has_route_params:
-            has_template = True  # Route params make it a template
-            original = converted_original
-            # Replace {param} with FUZZ in placeholder/resolved
-            placeholder_str = re.sub(r'\{[^}]+\}', placeholder, converted_placeholder)
-            resolved = re.sub(r'\{[^}]+\}', placeholder, converted_resolved)
-            # Consolidate adjacent placeholders (e.g., {t}{i} -> FUZZFUZZ -> FUZZ)
-            placeholder_str = consolidate_adjacent_placeholders(placeholder_str, placeholder)
-            resolved = consolidate_adjacent_placeholders(resolved, placeholder)
-        elif has_template:
-            # Has template substitutions but no route params
-            # Still need to replace remaining {} patterns and consolidate
-            original = converted_original
-            placeholder_str = re.sub(r'\{[^}]+\}', placeholder, converted_placeholder)
-            resolved = re.sub(r'\{[^}]+\}', placeholder, converted_resolved)
-            placeholder_str = consolidate_adjacent_placeholders(placeholder_str, placeholder)
-            resolved = consolidate_adjacent_placeholders(resolved, placeholder)
+    all_combinations = list(product(*resolved_parts_lists))
 
-        entry = {
-            'original': original,
-            'placeholder': placeholder_str,
-            'has_template': has_template
-        }
-        if not has_template or resolved != placeholder_str:
-            entry['resolved'] = resolved
-        return entry
+    # If no template substitutions, just return single result
+    if not has_template:
+        resolved = ''.join(all_combinations[0]) if all_combinations else original
+        placeholder_str = resolved
 
-    return None
+        if is_url_pattern(original) or is_path_pattern(original):
+            return {
+                'original': original,
+                'placeholder': placeholder_str,
+                'resolved': resolved,
+                'has_template': False
+            }
+        return None
+
+    # Generate results for all combinations
+    results = []
+    for combo in all_combinations:
+        resolved = ''.join(combo)
+
+        # Check if this combination is a URL/path pattern
+        if (is_url_pattern(original) or is_path_pattern(original) or
+            is_url_pattern(resolved) or is_path_pattern(resolved)):
+
+            # Check for route parameters in the result and convert them
+            _, converted_original, has_route_params = convert_route_params(original, placeholder)
+            _, converted_resolved, _ = convert_route_params(resolved, placeholder)
+
+            if has_route_params:
+                # Route params make it a template
+                final_original = converted_original
+                # Replace {param} with FUZZ
+                final_resolved = re.sub(r'\{[^}]+\}', placeholder, converted_resolved)
+                final_resolved = consolidate_adjacent_placeholders(final_resolved, placeholder)
+            else:
+                # Has template substitutions but no route params
+                final_original = converted_original
+                final_resolved = re.sub(r'\{[^}]+\}', placeholder, converted_resolved)
+                final_resolved = consolidate_adjacent_placeholders(final_resolved, placeholder)
+
+            entry = {
+                'original': final_original,
+                'placeholder': final_resolved,
+                'has_template': True
+            }
+            if final_resolved != final_original:
+                entry['resolved'] = final_resolved
+            results.append(entry)
+
+    # Return all results or None
+    return results if results else None
 
 
 def process_binary_expression(node, placeholder):
