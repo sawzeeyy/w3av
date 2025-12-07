@@ -103,6 +103,13 @@ def is_junk_url(text, placeholder='FUZZ'):
     if text in ['http://', 'https://', '//', 'https:', 'http:']:
         return True
 
+    # Protocol + only placeholder (no actual domain/path info)
+    # Matches: https://FUZZ, https://FUZZ/, http://FUZZ, http://FUZZ/
+    # But NOT template variables like https://{domain} which are meaningful
+    if text == f'https://{placeholder}' or text == f'https://{placeholder}/' or \
+       text == f'http://{placeholder}' or text == f'http://{placeholder}/':
+        return True
+
     # Property paths (word.word.word without slashes)
     if re.match(r'^[a-z]+\.[a-z]+\.[a-z.]+$', text, re.IGNORECASE) and '/' not in text:
         return True
