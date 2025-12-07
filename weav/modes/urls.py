@@ -53,7 +53,7 @@ def clean_unbalanced_brackets(text):
     return text[:valid_length]
 
 
-def is_junk_url(text):
+def is_junk_url(text, placeholder='FUZZ'):
     """
     Filters out non-URL strings that shouldn't be in results.
 
@@ -98,10 +98,33 @@ def is_junk_url(text):
         return True
 
     # Too generic paths
-    if text in ['./', '/FUZZ', '//FUZZ']:
+    if text in ['./', f'/{placeholder}', f'//{placeholder}']:
+        return True
+
+    # Paths that are only placeholders separated by slashes (no actual path info)
+    # Examples: FUZZ/FUZZ, FUZZ/FUZZ/FUZZ/FUZZ/FUZZ
+    if re.match(f'^{re.escape(placeholder)}(/{re.escape(placeholder)})+$', text):
         return True
 
     return False
+
+
+def consolidate_adjacent_placeholders(text, placeholder='FUZZ'):
+    """
+    Consolidates adjacent placeholders into a single placeholder.
+
+    Example: 'FUZZFUZZ' -> 'FUZZ', '/spaces/FUZZFUZZ' -> '/spaces/FUZZ'
+
+    This handles cases where adjacent template expressions like {t}{i}
+    get replaced to become FUZZFUZZ without separators.
+    """
+    if not text or placeholder not in text:
+        return text
+
+    # Replace 2+ consecutive placeholders with single placeholder
+    import re
+    pattern = f'({re.escape(placeholder)}){{2,}}'
+    return re.sub(pattern, placeholder, text)
 
 
 def is_url_pattern(text):
@@ -802,6 +825,7 @@ def add_url_entry(entry, verbose):
             if verbose:
                 # Clean and filter before printing
                 url_to_print = clean_unbalanced_brackets(e.get('placeholder', e.get('original', '')))
+                # Note: We don't have placeholder here, so using default 'FUZZ'
                 if not is_junk_url(url_to_print):
                     print(f"{url_to_print}")
 
@@ -955,6 +979,17 @@ def process_template_string(node, placeholder):
             # Replace {param} with FUZZ in placeholder/resolved
             placeholder_str = re.sub(r'\{[^}]+\}', placeholder, converted_placeholder)
             resolved = re.sub(r'\{[^}]+\}', placeholder, converted_resolved)
+            # Consolidate adjacent placeholders (e.g., {t}{i} -> FUZZFUZZ -> FUZZ)
+            placeholder_str = consolidate_adjacent_placeholders(placeholder_str, placeholder)
+            resolved = consolidate_adjacent_placeholders(resolved, placeholder)
+        elif has_template:
+            # Has template substitutions but no route params
+            # Still need to replace remaining {} patterns and consolidate
+            original = converted_original
+            placeholder_str = re.sub(r'\{[^}]+\}', placeholder, converted_placeholder)
+            resolved = re.sub(r'\{[^}]+\}', placeholder, converted_resolved)
+            placeholder_str = consolidate_adjacent_placeholders(placeholder_str, placeholder)
+            resolved = consolidate_adjacent_placeholders(resolved, placeholder)
 
         entry = {
             'original': original,
@@ -1110,6 +1145,17 @@ def process_binary_expression(node, placeholder):
             # Replace {param} with FUZZ in placeholder/resolved
             placeholder_str = re.sub(r'\{[^}]+\}', placeholder, converted_placeholder)
             resolved = re.sub(r'\{[^}]+\}', placeholder, converted_resolved)
+            # Consolidate adjacent placeholders created by route param replacement (e.g., {t}{i} -> FUZZFUZZ -> FUZZ)
+            placeholder_str = consolidate_adjacent_placeholders(placeholder_str, placeholder)
+            resolved = consolidate_adjacent_placeholders(resolved, placeholder)
+        elif has_template:
+            # Has template substitutions but no route params
+            # Still need to replace remaining {} patterns and consolidate
+            original = converted_original
+            placeholder_str = re.sub(r'\{[^}]+\}', placeholder, converted_placeholder)
+            resolved = re.sub(r'\{[^}]+\}', placeholder, converted_resolved)
+            placeholder_str = consolidate_adjacent_placeholders(placeholder_str, placeholder)
+            resolved = consolidate_adjacent_placeholders(resolved, placeholder)
 
         entry = {
             'original': original,
@@ -1300,6 +1346,17 @@ def process_concat_call(node, placeholder):
             # Replace {param} with FUZZ in placeholder/resolved
             placeholder_str = re.sub(r'\{[^}]+\}', placeholder, converted_placeholder)
             resolved = re.sub(r'\{[^}]+\}', placeholder, converted_resolved)
+            # Consolidate adjacent placeholders created by route param replacement (e.g., {t}{i} -> FUZZFUZZ -> FUZZ)
+            placeholder_str = consolidate_adjacent_placeholders(placeholder_str, placeholder)
+            resolved = consolidate_adjacent_placeholders(resolved, placeholder)
+        elif has_template:
+            # Has template substitutions but no route params
+            # Still need to replace remaining {} patterns and consolidate
+            original = converted_original
+            placeholder_str = re.sub(r'\{[^}]+\}', placeholder, converted_placeholder)
+            resolved = re.sub(r'\{[^}]+\}', placeholder, converted_resolved)
+            placeholder_str = consolidate_adjacent_placeholders(placeholder_str, placeholder)
+            resolved = consolidate_adjacent_placeholders(resolved, placeholder)
 
         entry = {
             'original': original,
@@ -1444,27 +1501,27 @@ def format_output(include_templates, placeholder):
 
             if entry.get('has_template', False):
                 # Has template - add BOTH original ({x} syntax) AND placeholder (FUZZ) version
-                if original and not is_junk_url(original) and original not in results:
+                if original and not is_junk_url(original, placeholder) and original not in results:
                     results.append(original)
-                if placeholder_val and not is_junk_url(placeholder_val) and placeholder_val not in results and placeholder_val != original:
+                if placeholder_val and not is_junk_url(placeholder_val, placeholder) and placeholder_val not in results and placeholder_val != original:
                     results.append(placeholder_val)
             else:
                 # Static URL - just add it once
-                if placeholder_val and not is_junk_url(placeholder_val) and placeholder_val not in results:
+                if placeholder_val and not is_junk_url(placeholder_val, placeholder) and placeholder_val not in results:
                     results.append(placeholder_val)
         else:
             # Only include static URLs or resolved placeholder versions (no {x} syntax)
             if not entry.get('has_template', False):
                 # Static URL - use as-is
                 output = clean_unbalanced_brackets(entry.get('resolved', entry.get('original', '')))
-                if output and not is_junk_url(output) and output not in results:
+                if output and not is_junk_url(output, placeholder) and output not in results:
                     results.append(output)
             else:
                 # Has template - use placeholder version (with FUZZ), NOT original (with {})
                 placeholder_val = clean_unbalanced_brackets(entry.get('placeholder', ''))
 
                 # Only include if we successfully replaced template markers
-                if placeholder_val and '{' not in placeholder_val and not is_junk_url(placeholder_val) and placeholder_val not in results:
+                if placeholder_val and '{' not in placeholder_val and not is_junk_url(placeholder_val, placeholder) and placeholder_val not in results:
                     results.append(placeholder_val)
 
     return results
