@@ -707,6 +707,52 @@ class TestHelperFunctions:
         assert is_path_pattern('/e') == False  # Too short
 
 
+class TestAdjacentPlaceholders:
+    """Test handling of adjacent template expressions without separators."""
+
+    def test_adjacent_template_expressions(self):
+        node, file_size = parse_file('adjacent_placeholders.js')
+        urls = get_urls(node, 'FUZZ', include_templates=True, verbose=False, file_size=file_size)
+
+        # Should consolidate adjacent placeholders
+        assert 'FUZZ/spaces/FUZZ' in urls
+        assert '{prefix}/spaces/{key}{suffix ? `/${suffix}` : ""}' in urls
+
+        # Should NOT include pure placeholder paths (filtered as junk)
+        assert 'FUZZ/FUZZ' not in urls
+        assert 'FUZZ/FUZZ/FUZZ/FUZZ/FUZZ' not in urls
+
+    def test_consolidate_adjacent_placeholders_function(self):
+        from weav.modes.urls import consolidate_adjacent_placeholders
+
+        # Test the helper function directly
+        assert consolidate_adjacent_placeholders('FUZZFUZZ', 'FUZZ') == 'FUZZ'
+        assert consolidate_adjacent_placeholders('FUZZ/FUZZFUZZ', 'FUZZ') == 'FUZZ/FUZZ'
+        assert consolidate_adjacent_placeholders('FUZZ/spaces/FUZZFUZZ', 'FUZZ') == 'FUZZ/spaces/FUZZ'
+        assert consolidate_adjacent_placeholders('FUZZ/FUZZ/FUZZ/FUZZ/FUZZFUZZ', 'FUZZ') == 'FUZZ/FUZZ/FUZZ/FUZZ/FUZZ'
+
+        # Test with custom placeholder
+        assert consolidate_adjacent_placeholders('CUSTOMCUSTOM', 'CUSTOM') == 'CUSTOM'
+        assert consolidate_adjacent_placeholders('CUSTOM/api/CUSTOMCUSTOM', 'CUSTOM') == 'CUSTOM/api/CUSTOM'
+
+    def test_junk_filtering_pure_placeholders(self):
+        from weav.modes.urls import is_junk_url
+
+        # Pure placeholder paths should be junk
+        assert is_junk_url('FUZZ/FUZZ', 'FUZZ') == True
+        assert is_junk_url('FUZZ/FUZZ/FUZZ', 'FUZZ') == True
+        assert is_junk_url('FUZZ/FUZZ/FUZZ/FUZZ/FUZZ', 'FUZZ') == True
+
+        # Paths with actual content should NOT be junk
+        assert is_junk_url('FUZZ/spaces/FUZZ', 'FUZZ') == False
+        assert is_junk_url('/api/FUZZ/users', 'FUZZ') == False
+        assert is_junk_url('FUZZ/api/v2', 'FUZZ') == False
+
+        # Custom placeholder
+        assert is_junk_url('CUSTOM/CUSTOM', 'CUSTOM') == True
+        assert is_junk_url('CUSTOM/api/CUSTOM', 'CUSTOM') == False
+
+
 class TestLargeFileOptimization:
     """Test behavior with large files."""
 
