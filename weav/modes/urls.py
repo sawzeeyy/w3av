@@ -2125,10 +2125,12 @@ def get_urls(node, placeholder, include_templates, verbose, file_size=0, max_nod
     - verbose: Print URLs as discovered
     - file_size: Size of input file in bytes (for optimization)
     - max_nodes: Maximum number of AST nodes to visit (default: 1,000,000)
-    - max_file_size_mb: Max file size in MB for symbol resolution (default: 1.0)
+    - max_file_size_mb: Max file size in MB for symbol/alias resolution (default: 1.0)
     - html_parser: HTML parser backend to use (default: 'lxml')
     - skip_symbols: Skip symbol resolution entirely (default: False)
     - skip_aliases: Skip semantic alias extraction (default: False)
+
+    Note: Large files (>max_file_size_mb) automatically skip both symbols and aliases.
 
     Returns:
     - List of URLs
@@ -2145,18 +2147,24 @@ def get_urls(node, placeholder, include_templates, verbose, file_size=0, max_nod
     max_nodes_limit = max_nodes
     mime_types = load_mime_types()
     html_parser_backend = html_parser
+
+    # For large files (>max_file_size_mb), skip symbol table building and semantic aliases to avoid hanging
+    # Also skip if user explicitly requested via --skip-symbols or --skip-aliases
+    file_size_mb = file_size / (1024 * 1024)
+    is_large_file = file_size_mb > max_file_size_mb
+
+    skip_symbols = skip_symbols or is_large_file
+    skip_aliases = skip_aliases or is_large_file
     disable_semantic_aliases = skip_aliases  # Control semantic alias extraction
 
-    # For large files (>max_file_size_mb), skip symbol table building to avoid hanging
-    # Also skip if user explicitly requested via --skip-symbols
-    file_size_mb = file_size / (1024 * 1024)
-    skip_symbols = skip_symbols or (file_size_mb > max_file_size_mb)
-
-    if skip_symbols and verbose:
-        if file_size_mb > max_file_size_mb:
-            sys.stderr.write(f'Large file ({file_size_mb:.1f}MB): Skipping symbol resolution for faster processing.\n')
+    if verbose:
+        if is_large_file:
+            sys.stderr.write(f'Large file ({file_size_mb:.1f}MB): Skipping symbol resolution and semantic aliases for faster processing.\n')
         else:
-            sys.stderr.write('Skipping symbol resolution (--skip-symbols flag).\n')
+            if skip_symbols:
+                sys.stderr.write('Skipping symbol resolution (--skip-symbols flag).\n')
+            if skip_aliases:
+                sys.stderr.write('Skipping semantic aliases (--skip-aliases flag).\n')
 
     # Pass 1: Build symbol table (skip for large files or if user requested)
     if not skip_symbols:

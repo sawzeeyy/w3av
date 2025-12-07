@@ -944,6 +944,51 @@ class TestSemanticAliases:
         assert not any('{contentId}' in url for url in urls_without_aliases), \
             f"Should not see {{contentId}} with aliases disabled"
 
+    def test_large_file_disables_aliases(self):
+        """Test that large files automatically disable semantic aliases."""
+        from tree_sitter import Parser, Language
+        import tree_sitter_javascript
+
+        js_code = """
+        const t = '123';
+        const params = { contentId: t };
+        const url = `/api/content/${t}`;
+        """
+
+        JS_LANGUAGE = Language(tree_sitter_javascript.language())
+        parser = Parser(JS_LANGUAGE)
+        tree = parser.parse(bytes(js_code, 'utf8'))
+
+        # Small file - aliases enabled
+        urls_small = get_urls(
+            node=tree.root_node,
+            placeholder='FUZZ',
+            include_templates=True,
+            verbose=False,
+            file_size=100,
+            max_file_size_mb=1.0
+        )
+
+        # Large file - aliases disabled automatically
+        urls_large = get_urls(
+            node=tree.root_node,
+            placeholder='FUZZ',
+            include_templates=True,
+            verbose=False,
+            file_size=2 * 1024 * 1024,  # 2MB
+            max_file_size_mb=1.0
+        )
+
+        # Small file should have aliases
+        assert any('{contentId}' in url for url in urls_small), \
+            f"Expected {{contentId}} for small file, got: {urls_small}"
+
+        # Large file should use raw variable names
+        assert any('{t}' in url for url in urls_large), \
+            f"Expected {{t}} for large file, got: {urls_large}"
+        assert not any('{contentId}' in url for url in urls_large), \
+            f"Should not see {{contentId}} for large file"
+
 
 class TestSkipSymbols:
     """Test --skip-symbols functionality."""
