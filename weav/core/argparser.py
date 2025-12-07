@@ -141,6 +141,11 @@ def parse_arguments():
         metavar='PARSER',
         help='HTML parser backend (choices: lxml, html.parser, html5lib, html5-parser)'
     )
+    parser_urls.add_argument(
+        '--skip-symbols',
+        action='store_true',
+        help='Skip symbol resolution for faster processing (useful for large/complex files)'
+    )
 
     # Tree
     parser_tree = add_subparser_with_common_args(

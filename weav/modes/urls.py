@@ -1540,7 +1540,7 @@ def format_output(include_templates, placeholder):
     return results
 
 
-def get_urls(node, placeholder, include_templates, verbose, file_size=0, max_nodes=1000000, max_file_size_mb=1.0, html_parser='lxml'):
+def get_urls(node, placeholder, include_templates, verbose, file_size=0, max_nodes=1000000, max_file_size_mb=1.0, html_parser='lxml', skip_symbols=False):
     """
     Main function - orchestrates the two-pass extraction.
 
@@ -1553,6 +1553,7 @@ def get_urls(node, placeholder, include_templates, verbose, file_size=0, max_nod
     - max_nodes: Maximum number of AST nodes to visit (default: 1,000,000)
     - max_file_size_mb: Max file size in MB for symbol resolution (default: 1.0)
     - html_parser: HTML parser backend to use (default: 'lxml')
+    - skip_symbols: Skip symbol resolution entirely (default: False)
 
     Returns:
     - List of URLs
@@ -1570,13 +1571,17 @@ def get_urls(node, placeholder, include_templates, verbose, file_size=0, max_nod
     html_parser_backend = html_parser
 
     # For large files (>max_file_size_mb), skip symbol table building to avoid hanging
+    # Also skip if user explicitly requested via --skip-symbols
     file_size_mb = file_size / (1024 * 1024)
-    skip_symbols = file_size_mb > max_file_size_mb
+    skip_symbols = skip_symbols or (file_size_mb > max_file_size_mb)
 
     if skip_symbols and verbose:
-        sys.stderr.write(f'Large file ({file_size_mb:.1f}MB): Skipping symbol resolution for faster processing.\n')
+        if file_size_mb > max_file_size_mb:
+            sys.stderr.write(f'Large file ({file_size_mb:.1f}MB): Skipping symbol resolution for faster processing.\n')
+        else:
+            sys.stderr.write('Skipping symbol resolution (--skip-symbols flag).\n')
 
-    # Pass 1: Build symbol table (skip for large files)
+    # Pass 1: Build symbol table (skip for large files or if user requested)
     if not skip_symbols:
         build_symbol_table(node, placeholder)
 

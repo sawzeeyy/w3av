@@ -768,5 +768,71 @@ class TestLargeFileOptimization:
         assert len(urls) > 0
 
 
+class TestSkipSymbols:
+    """Test --skip-symbols functionality."""
+
+    def test_skip_symbols_flag(self):
+        """Test that --skip-symbols prevents symbol resolution."""
+        node, file_size = parse_file('skip_symbols_basic.js')
+
+        # With symbol resolution (default)
+        urls_with_symbols = get_urls(node, 'FUZZ', False, False, file_size=file_size, skip_symbols=False)
+        assert '/api/v1' in urls_with_symbols
+        assert '/users' in urls_with_symbols
+        assert '/static/path' in urls_with_symbols
+        assert '/api/v1/users' in urls_with_symbols  # Should resolve the concatenation
+
+        # Without symbol resolution (--skip-symbols)
+        urls_without_symbols = get_urls(node, 'FUZZ', False, False, file_size=file_size, skip_symbols=True)
+        assert '/api/v1' in urls_without_symbols
+        assert '/users' in urls_without_symbols
+        assert '/static/path' in urls_without_symbols
+        assert '/api/v1/users' not in urls_without_symbols  # Should NOT resolve the concatenation
+
+    def test_skip_symbols_with_large_file(self):
+        """Test that large files automatically skip symbols."""
+        node, file_size = parse_file('skip_symbols_simple.js')
+
+        # Small file size - should use symbols
+        urls = get_urls(node, 'FUZZ', False, False, file_size=100, max_file_size_mb=1.0, skip_symbols=False)
+        assert '/api/test' in urls
+
+        # Large file size - should skip symbols automatically
+        urls = get_urls(node, 'FUZZ', False, False, file_size=2 * 1024 * 1024, max_file_size_mb=1.0, skip_symbols=False)
+        assert '/api/test' in urls
+
+        # Explicit skip_symbols overrides file size check
+        urls = get_urls(node, 'FUZZ', False, False, file_size=100, max_file_size_mb=1.0, skip_symbols=True)
+        assert '/api/test' in urls
+
+    def test_skip_symbols_with_templates(self):
+        """Test skip_symbols with template strings."""
+        node, file_size = parse_file('skip_symbols_template.js')
+
+        # With symbol resolution
+        urls_with = get_urls(node, 'FUZZ', False, False, file_size=file_size, skip_symbols=False)
+        assert any('/users/' in url for url in urls_with)
+
+        # Without symbol resolution - should still extract templates with placeholder
+        urls_without = get_urls(node, 'FUZZ', False, False, file_size=file_size, skip_symbols=True)
+        assert any('/users/' in url for url in urls_without)
+
+    def test_skip_symbols_with_objects(self):
+        """Test skip_symbols with object properties."""
+        node, file_size = parse_file('skip_symbols_objects.js')
+
+        # With symbol resolution
+        urls_with = get_urls(node, 'FUZZ', False, False, file_size=file_size, skip_symbols=False)
+        assert '/api/v2' in urls_with
+        assert '/data' in urls_with
+        assert '/api/v2/data' in urls_with  # Should resolve object properties
+
+        # Without symbol resolution
+        urls_without = get_urls(node, 'FUZZ', False, False, file_size=file_size, skip_symbols=True)
+        assert '/api/v2' in urls_without
+        assert '/data' in urls_without
+        assert '/api/v2/data' not in urls_without  # Should NOT resolve object properties
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
