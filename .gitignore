@@ -26,6 +26,7 @@ dist/
 
 # Output and generated files
 explore/
+test_*.js
 
 # Ignore lock files
 poetry.lock
