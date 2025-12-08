@@ -30,7 +30,9 @@ def main():
             args.max_file_size,
             args.html_parser,
             args.skip_symbols,
-            args.skip_aliases
+            args.skip_aliases,
+            args.context,
+            args.context_policy
         )
     elif args.mode == 'tree':
         result = get_syntax_tree(

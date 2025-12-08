@@ -1,4 +1,5 @@
 import sys
+
 from tree_sitter import Query, QueryCursor
 
 

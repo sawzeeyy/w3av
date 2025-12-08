@@ -117,3 +117,78 @@ def test_argparser_stdin_input(monkeypatch):
 
     assert args.mode == 'strings'
     assert args.javascript == "const z = 15;"
+
+
+def test_argparser_context_invalid_format(monkeypatch):
+    """Test --context with invalid format raises error"""
+    test_input = StringIO("const x = 1;")
+    monkeypatch.setattr(sys, 'argv', ['weav', 'urls', '--context', 'INVALID'])
+    monkeypatch.setattr(sys, 'stdin', test_input)
+    monkeypatch.setattr(sys.stdin, 'isatty', lambda: False)
+
+    with pytest.raises(SystemExit):
+        parse_arguments()
+
+
+def test_argparser_context_empty_string(monkeypatch):
+    """Test --context with empty string raises error"""
+    test_input = StringIO("const x = 1;")
+    monkeypatch.setattr(sys, 'argv', ['weav', 'urls', '--context', ''])
+    monkeypatch.setattr(sys, 'stdin', test_input)
+    monkeypatch.setattr(sys.stdin, 'isatty', lambda: False)
+
+    with pytest.raises(SystemExit):
+        parse_arguments()
+
+
+def test_argparser_context_valid_json(monkeypatch):
+    """Test --context with valid JSON string"""
+    test_input = StringIO("const x = 1;")
+    monkeypatch.setattr(sys, 'argv', ['weav', 'urls', '--context', '{"BASE_URL":"https://test.com"}'])
+    monkeypatch.setattr(sys, 'stdin', test_input)
+    monkeypatch.setattr(sys.stdin, 'isatty', lambda: False)
+
+    args = parse_arguments()
+
+    assert args.mode == 'urls'
+    assert args.context == {'BASE_URL': 'https://test.com'}
+
+
+def test_argparser_context_valid_keyvalue(monkeypatch):
+    """Test --context with valid KEY=VALUE format"""
+    test_input = StringIO("const x = 1;")
+    monkeypatch.setattr(sys, 'argv', ['weav', 'urls', '--context', 'BASE_URL=https://test.com'])
+    monkeypatch.setattr(sys, 'stdin', test_input)
+    monkeypatch.setattr(sys.stdin, 'isatty', lambda: False)
+
+    args = parse_arguments()
+
+    assert args.mode == 'urls'
+    assert args.context == {'BASE_URL': 'https://test.com'}
+
+
+def test_argparser_context_policy_valid(monkeypatch):
+    """Test --context-policy with valid values"""
+    test_input = StringIO("const x = 1;")
+
+    for policy in ['merge', 'override', 'only']:
+        monkeypatch.setattr(sys, 'argv', ['weav', 'urls', '--context-policy', policy])
+        monkeypatch.setattr(sys, 'stdin', test_input)
+        monkeypatch.setattr(sys.stdin, 'isatty', lambda: False)
+
+        args = parse_arguments()
+        assert args.context_policy == policy
+
+        # Reset stdin for next iteration
+        test_input.seek(0)
+
+
+def test_argparser_context_policy_invalid(monkeypatch):
+    """Test --context-policy with invalid value raises error"""
+    test_input = StringIO("const x = 1;")
+    monkeypatch.setattr(sys, 'argv', ['weav', 'urls', '--context-policy', 'invalid'])
+    monkeypatch.setattr(sys, 'stdin', test_input)
+    monkeypatch.setattr(sys.stdin, 'isatty', lambda: False)
+
+    with pytest.raises(SystemExit):
+        parse_arguments()

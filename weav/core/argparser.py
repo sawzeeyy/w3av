@@ -3,6 +3,7 @@ import sys
 import textwrap
 
 from importlib.metadata import version as pkg_version
+from weav.core.context import parse_context_input, validate_policy
 
 
 class ArgumentParser(argparse.ArgumentParser):
@@ -151,6 +152,25 @@ def parse_arguments():
         action='store_true',
         help='Skip semantic alias extraction; use raw variable names in templates'
     )
+    parser_urls.add_argument(
+        '--context',
+        type=str,
+        metavar='STR|FILE',
+        help='Definition of known variables. Formats: JSON file path (context.json), '
+             'JSON string (\'{"BASE":"..."}\'), or KEY=VALUE pairs '
+             '(\'BASE=val,CDN=val2\' or \'BASE=val CDN=val2\')'
+    )
+    parser_urls.add_argument(
+        '--context-policy',
+        type=str,
+        default='merge',
+        choices=['merge', 'override', 'only'],
+        metavar='POLICY',
+        help='Specify how to handle context/JavaScript file variable collisions. '
+             'merge: append both values (default), '
+             'override: context takes precedence, '
+             'only: use context exclusively (skip symbols resolution in JavaScript file)'
+    )
 
     # Tree
     parser_tree = add_subparser_with_common_args(
@@ -291,6 +311,21 @@ def parse_arguments():
         if args.min is not None and args.max is not None:
             if args.min >= args.max:
                 parser.error("Minimum length must be less than Maximum length")
+
+    # Validate and parse context in urls mode
+    if args.mode == 'urls':
+        if hasattr(args, 'context') and args.context is not None:
+            try:
+                # Parse and store the parsed context back in args
+                args.context = parse_context_input(args.context)
+            except ValueError as e:
+                parser.error(f"--context: {e}")
+
+        if hasattr(args, 'context_policy') and args.context_policy:
+            try:
+                validate_policy(args.context_policy)
+            except ValueError as e:
+                parser.error(f"--context-policy: {e}")
 
     # Disable writing to stdout if verbose is enabled in urls mode
     # since urls are printed as they are found

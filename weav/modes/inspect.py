@@ -1,5 +1,6 @@
 from weav.core.jsparser import parse_javascript
 from weav.core.comment import remove_comment_delimiter
+
 import importlib.resources
 
 

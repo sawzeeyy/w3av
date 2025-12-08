@@ -1,4 +1,5 @@
 import tree_sitter_javascript
+
 from tree_sitter import Language, Parser
 
 

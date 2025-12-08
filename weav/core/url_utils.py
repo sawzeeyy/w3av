@@ -1,12 +1,12 @@
+import re
+import importlib.resources
+
 """
 URL pattern detection utilities.
 
 Shared functions for detecting URLs and paths in various contexts.
 Used by both the HTML parser and JavaScript string extraction.
 """
-
-import re
-import importlib.resources
 
 
 # Cache for file extensions

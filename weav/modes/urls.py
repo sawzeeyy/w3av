@@ -2,9 +2,11 @@ import re
 import sys
 import importlib.resources
 
+from itertools import product
 from weav.core.jsparser import parse_javascript
 from weav.core.url_utils import is_url_pattern, is_path_pattern, is_filename_pattern
 from weav.core.html import extract_urls_from_html, extract_inline_scripts_from_html
+from weav.core.context import populate_symbol_tables, should_skip_pass1, should_use_file_value
 
 
 # Load MIME types from config files
@@ -183,7 +185,6 @@ def consolidate_adjacent_placeholders(text, placeholder='FUZZ'):
         return text
 
     # Replace 2+ consecutive placeholders with single placeholder
-    import re
     pattern = f'({re.escape(placeholder)}){{2,}}'
     return re.sub(pattern, placeholder, text)
 
@@ -1204,10 +1205,16 @@ def collect_object_assignment(node, placeholder):
             current_obj[final_prop].append(val)
 
 
-def collect_variable_assignment(node, placeholder):
+def collect_variable_assignment(node, placeholder, context=None, context_policy='merge'):
     """
     Processes variable declarators and appends their values to symbol_table.
     Also scans for semantic aliases from nearby object literals.
+
+    Parameters:
+    - node: AST node to process
+    - placeholder: Placeholder string for unknown values
+    - context: Parsed context dictionary (external variable definitions)
+    - context_policy: How to handle context/file collisions ('merge', 'override', 'only')
     """
     var_name = None
     value_node = None
@@ -1228,6 +1235,12 @@ def collect_variable_assignment(node, placeholder):
 
     if not var_name or not value_node:
         return
+
+    # Check context policy - should we use this file value?
+    if context is not None:
+        if not should_use_file_value(var_name, context, context_policy):
+            # Policy says to ignore file value for this variable
+            return
 
     # Initialize list if first assignment
     if var_name not in symbol_table:
@@ -1285,10 +1298,16 @@ def collect_variable_assignment(node, placeholder):
         scan_sibling_nodes_for_aliases(parent_node, var_name)
 
 
-def build_symbol_table(node, placeholder):
+def build_symbol_table(node, placeholder, context=None, context_policy='merge'):
     """
     First pass - recursively traverses AST to collect variable assignments
     and build object structures.
+
+    Parameters:
+    - node: AST node to traverse
+    - placeholder: Placeholder string for unknown values
+    - context: Parsed context dictionary (external variable definitions)
+    - context_policy: How to handle context/file collisions ('merge', 'override', 'only')
     """
     global node_visit_count, max_nodes_limit
     node_visit_count += 1
@@ -1300,18 +1319,18 @@ def build_symbol_table(node, placeholder):
     if node.type == 'lexical_declaration' or node.type == 'variable_declaration':
         for child in node.named_children:
             if child.type == 'variable_declarator':
-                collect_variable_assignment(child, placeholder)
+                collect_variable_assignment(child, placeholder, context=context, context_policy=context_policy)
     elif node.type == 'assignment_expression':
         left_node = node.child_by_field_name('left')
         if left_node:
             if left_node.type == 'identifier':
-                collect_variable_assignment(node, placeholder)
+                collect_variable_assignment(node, placeholder, context=context, context_policy=context_policy)
             elif left_node.type == 'member_expression':
                 collect_object_assignment(node, placeholder)
 
     # Recurse
     for child in node.named_children:
-        build_symbol_table(child, placeholder)
+        build_symbol_table(child, placeholder, context=context, context_policy=context_policy)
 
 
 def add_url_entry(entry, verbose):
@@ -1529,8 +1548,6 @@ def process_template_string(node, placeholder):
     original = ''.join(original_parts)
 
     # Generate all combinations of resolved values
-    from itertools import product
-
     all_combinations = list(product(*resolved_parts_lists))
 
     # If no template substitutions, just return single result
@@ -2153,7 +2170,9 @@ def format_output(include_templates, placeholder):
     return results
 
 
-def get_urls(node, placeholder, include_templates, verbose, file_size=0, max_nodes=1000000, max_file_size_mb=1.0, html_parser='lxml', skip_symbols=False, skip_aliases=False):
+def get_urls(node, placeholder, include_templates, verbose, file_size=0, max_nodes=1000000,
+             max_file_size_mb=1.0, html_parser='lxml', skip_symbols=False, skip_aliases=False,
+             context=None, context_policy='merge'):
     """
     Main function - orchestrates the two-pass extraction.
 
@@ -2168,8 +2187,11 @@ def get_urls(node, placeholder, include_templates, verbose, file_size=0, max_nod
     - html_parser: HTML parser backend to use (default: 'lxml')
     - skip_symbols: Skip symbol resolution entirely (default: False)
     - skip_aliases: Skip semantic alias extraction (default: False)
+    - context: Parsed context dictionary (external variable definitions)
+    - context_policy: How to handle context/file collisions ('merge', 'override', 'only')
 
     Note: Large files (>max_file_size_mb) automatically skip both symbols and aliases.
+          Context forces symbol resolution even for large files.
 
     Returns:
     - List of URLs
@@ -2187,27 +2209,42 @@ def get_urls(node, placeholder, include_templates, verbose, file_size=0, max_nod
     mime_types = load_mime_types()
     html_parser_backend = html_parser
 
+    # Pre-populate tables from context if provided
+    context_provided = context is not None and context
+    if context_provided:
+        populate_symbol_tables(context, symbol_table, object_table, array_table)
+        if verbose:
+            sys.stderr.write(f'Loaded {len(context)} context variable(s).\n')
+
     # For large files (>max_file_size_mb), skip symbol table building and semantic aliases to avoid hanging
     # Also skip if user explicitly requested via --skip-symbols or --skip-aliases
+    # UNLESS context is provided - then we force symbol resolution
     file_size_mb = file_size / (1024 * 1024)
     is_large_file = file_size_mb > max_file_size_mb
 
-    skip_symbols = skip_symbols or is_large_file
+    # Context overrides large file optimization
+    force_symbol_resolution = context_provided
+
+    skip_symbols = skip_symbols or (is_large_file and not force_symbol_resolution)
     skip_aliases = skip_aliases or is_large_file
     disable_semantic_aliases = skip_aliases  # Control semantic alias extraction
 
     if verbose:
-        if is_large_file:
+        if is_large_file and not force_symbol_resolution:
             sys.stderr.write(f'Large file ({file_size_mb:.1f}MB): Skipping symbol resolution and semantic aliases for faster processing.\n')
+        elif is_large_file and force_symbol_resolution:
+            sys.stderr.write(f'Large file ({file_size_mb:.1f}MB): Context provided, forcing symbol resolution.\n')
         else:
             if skip_symbols:
                 sys.stderr.write('Skipping symbol resolution (--skip-symbols flag).\n')
             if skip_aliases:
                 sys.stderr.write('Skipping semantic aliases (--skip-aliases flag).\n')
 
-    # Pass 1: Build symbol table (skip for large files or if user requested)
-    if not skip_symbols:
-        build_symbol_table(node, placeholder)
+    # Pass 1: Build symbol table (skip for large files, or if user requested, or if policy is 'only')
+    skip_pass1 = skip_symbols or (context_provided and should_skip_pass1(context_policy))
+
+    if not skip_pass1:
+        build_symbol_table(node, placeholder, context=context, context_policy=context_policy)
 
     # Pass 2: Extract URLs
     traverse_node(node, placeholder, verbose)

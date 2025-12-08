@@ -1,3 +1,19 @@
+import os
+import pytest
+
+from tree_sitter import Parser, Language
+import tree_sitter_javascript
+from weav.core.jsparser import parse_javascript
+from weav.modes.urls import (
+    get_urls,
+    clean_unbalanced_brackets,
+    is_junk_url,
+    convert_route_params,
+    is_url_pattern,
+    is_path_pattern,
+    consolidate_adjacent_placeholders
+)
+
 """
 Tests for weav.modes.urls module - URL extraction from JavaScript files.
 
@@ -13,11 +29,6 @@ Tests cover:
 - Junk URL filtering
 - Variable reassignment
 """
-
-import os
-import pytest
-from weav.core.jsparser import parse_javascript
-from weav.modes.urls import get_urls
 
 
 # Path to test fixtures

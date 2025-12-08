@@ -1,14 +1,15 @@
-"""
-Tests for HTML URL extraction and inline script extraction.
-"""
-
 import pytest
+
 from weav.core.html import (
     extract_urls_from_html,
     extract_inline_scripts_from_html,
     is_url_pattern,
     is_path_pattern
 )
+
+"""
+Tests for HTML URL extraction and inline script extraction.
+"""
 
 
 class TestIsUrlPattern:
