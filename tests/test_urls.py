@@ -337,6 +337,60 @@ class TestJunkFiltering:
         # Domain-only might be filtered, check that we have valid URLs
         assert len(urls) > 0
 
+    def test_date_format_placeholders_filtered(self):
+        """Test that date/time format placeholders are filtered out."""
+        from tree_sitter import Parser, Language
+        import tree_sitter_javascript
+
+        js_code = """
+        // These should be FILTERED (pure date format placeholders)
+        const fmt1 = "/yyyy/mm/dd/";
+        const fmt2 = "/yyyy-mm-dd/";
+        const fmt3 = "/dd/mm/yyyy/";
+        const fmt4 = "/YYYY/MM/DD/";
+        const fmt5 = "/mm/dd/yyyy/";
+        const fmt6 = "/hh:mm:ss/";
+        const fmt7 = "/HH:MM/";
+
+        // These should be KEPT (valid URLs with date patterns)
+        const url1 = "/api/yyyy/mm/dd/posts";
+        const url2 = "/archive/yyyy/mm/dd";
+        const url3 = "https://example.com/yyyy/mm/dd/data";
+        const url4 = "/blog/yyyy-mm-dd/article";
+        const url5 = "/yyyy/mm/dd/index.html";
+        const url6 = "/api/v1/yyyy/mm/dd";
+        const url7 = "/api/2024/12/07/posts";
+        """
+
+        JS_LANGUAGE = Language(tree_sitter_javascript.language())
+        parser = Parser(JS_LANGUAGE)
+        tree = parser.parse(bytes(js_code, 'utf8'))
+
+        urls = get_urls(
+            node=tree.root_node,
+            placeholder='FUZZ',
+            include_templates=True,
+            verbose=False
+        )
+
+        # Date format placeholders should be filtered
+        assert '/yyyy/mm/dd/' not in urls
+        assert '/yyyy-mm-dd/' not in urls
+        assert '/dd/mm/yyyy/' not in urls
+        assert '/YYYY/MM/DD/' not in urls
+        assert '/mm/dd/yyyy/' not in urls
+        assert '/hh:mm:ss/' not in urls
+        assert '/HH:MM/' not in urls
+
+        # Valid URLs containing date patterns should be kept
+        assert '/api/yyyy/mm/dd/posts' in urls
+        assert '/archive/yyyy/mm/dd' in urls
+        assert 'https://example.com/yyyy/mm/dd/data' in urls
+        assert '/blog/yyyy-mm-dd/article' in urls
+        assert '/yyyy/mm/dd/index.html' in urls
+        assert '/api/v1/yyyy/mm/dd' in urls
+        assert '/api/2024/12/07/posts' in urls
+
 
 class TestVariableReassignment:
     """Test variable reassignment handling."""

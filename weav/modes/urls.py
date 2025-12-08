@@ -145,6 +145,19 @@ def is_junk_url(text, placeholder='FUZZ'):
     if re.match(f'^{re.escape(placeholder)}(/{re.escape(placeholder)})+$', text):
         return True
 
+    # Date/time format placeholders (no actual value)
+    # Examples: /yyyy/mm/dd/, /YYYY/MM/DD/, /yyyy-mm-dd/, /dd/mm/yyyy/
+    # Also catches template versions: /yyyy/{mm}/{dd}/, /{yyyy}/{mm}/{dd}/
+    if re.match(r'^/+(yyyy|YYYY|yy|YY|\{yyyy\}|\{YYYY\}|\{yy\}|\{YY\})[/-](mm|MM|m|M|\{mm\}|\{MM\}|\{m\}|\{M\})[/-](dd|DD|d|D|\{dd\}|\{DD\}|\{d\}|\{D\})/?$', text, re.IGNORECASE):
+        return True
+    if re.match(r'^/+(dd|DD|d|D|\{dd\}|\{DD\}|\{d\}|\{D\})[/-](mm|MM|m|M|\{mm\}|\{MM\}|\{m\}|\{M\})[/-](yyyy|YYYY|yy|YY|\{yyyy\}|\{YYYY\}|\{yy\}|\{YY\})/?$', text, re.IGNORECASE):
+        return True
+    if re.match(r'^/+(mm|MM|m|M|\{mm\}|\{MM\}|\{m\}|\{M\})[/-](dd|DD|d|D|\{dd\}|\{DD\}|\{d\}|\{D\})[/-](yyyy|YYYY|yy|YY|\{yyyy\}|\{YYYY\}|\{yy\}|\{YY\})/?$', text, re.IGNORECASE):
+        return True
+    # Time format placeholders: /hh:mm:ss/, /HH:MM/, /{hh}:{mm}/, etc.
+    if re.match(r'^/+(hh|HH|h|H|\{hh\}|\{HH\}|\{h\}|\{H\}):(mm|MM|m|M|\{mm\}|\{MM\}|\{m\}|\{M\})(:(ss|SS|s|S|\{ss\}|\{SS\}|\{s\}|\{S\}))?/?$', text, re.IGNORECASE):
+        return True
+
     return False
 
 
