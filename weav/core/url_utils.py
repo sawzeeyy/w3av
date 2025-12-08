@@ -166,17 +166,17 @@ def is_path_pattern(text):
     if is_filename_pattern(text):
         return True
 
-    # If it has query parameters or fragments, check the base part
+    # If it has query parameters, check the base part
     # This handles cases like: /path?query, path?query, domain.com?query
-    if '?' in text or '#' in text:
-        # Extract base (before ? or #)
-        base = re.split(r'[?#]', text)[0]
+    if '?' in text:
+        # Extract base (before ?)
+        base = text.split('?')[0]
         if not base:
             return False
         # Check if base is a valid URL or path
         # For query params, we're more lenient - just need something before the ?
         if base.startswith('/'):
-            return True  # Any path with query/fragment is valid
+            return True  # Any path with query is valid
         elif '/' in base:
             return True  # Paths like 'api/users?query'
         elif '.' in base:
@@ -185,7 +185,7 @@ def is_path_pattern(text):
         # Allow it if it has other URL indicators in the full text
         return len(base) >= 2  # Minimum length for base part
 
-    # Absolute paths (minimum 2 chars after /, allowing query/fragment)
+    # Absolute paths (minimum 2 chars after /)
     # Match: /path, /path/more, /path?query, /path#hash, /path?q#h
     if re.match(r'^/[a-zA-Z0-9_-]{2,}', text):
         return True
