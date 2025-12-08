@@ -699,6 +699,12 @@ def resolve_member_expression(node, placeholder='FUZZ'):
     if current:
         path.insert(0, current.text.decode('utf8'))
 
+    # Check if full path exists in symbol_table (from context)
+    # This allows context to override defaults like window.location.host
+    full_path = '.'.join(path)
+    if full_path in symbol_table:
+        return symbol_table[full_path]
+
     # Special handling for location properties
     if len(path) >= 2:
         # Check for window.location.* or location.*
