@@ -1,14 +1,15 @@
+from bs4 import BeautifulSoup
+from weav.core.url_utils import is_url_pattern, is_path_pattern, is_filename_pattern
+
 """
 HTML parsing utilities for extracting URLs from HTML markup and inline JavaScript.
 
 This module provides functions to:
 - Extract URLs from HTML attributes (href, src, action, etc.)
 - Extract inline JavaScript code from <script> tags
+- Extract legitimate filenames with valid extensions (e.g., image.jpg, script.js)
 - Support multiple HTML parser backends (lxml, html.parser, html5lib, html5-parser)
 """
-
-from bs4 import BeautifulSoup
-from weav.core.url_utils import is_url_pattern, is_path_pattern
 
 
 def extract_urls_from_html(html_string, placeholder='FUZZ', html_parser='lxml'):
@@ -106,9 +107,8 @@ def extract_urls_from_html(html_string, placeholder='FUZZ', html_parser='lxml'):
                                 continue
 
                             # Check if it's a URL/path pattern
-                            # Also accept filenames with extensions in HTML context (e.g., image.jpg, script.js)
-                            is_filename = '.' in u and '/' not in u and ' ' not in u
-                            if is_url_pattern(u) or is_path_pattern(u) or is_filename:
+                            # is_path_pattern() now includes is_filename_pattern() check
+                            if is_url_pattern(u) or is_path_pattern(u):
                                 entry = {
                                     'original': u,
                                     'placeholder': u,
@@ -129,9 +129,8 @@ def extract_urls_from_html(html_string, placeholder='FUZZ', html_parser='lxml'):
                         continue
 
                     # Check if it's a URL/path pattern
-                    # Also accept filenames with extensions in HTML context (e.g., image.jpg, script.js)
-                    is_filename = '.' in url and '/' not in url and ' ' not in url
-                    if is_url_pattern(url) or is_path_pattern(url) or is_filename:
+                    # is_path_pattern() now includes is_filename_pattern() check
+                    if is_url_pattern(url) or is_path_pattern(url):
                         entry = {
                             'original': url,
                             'placeholder': url,
