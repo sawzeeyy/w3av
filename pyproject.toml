@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "weav"
-version = "0.1.7"
+version = "0.1.8"
 description = "extract URLs, strings, and more from JavaScript code"
 authors = ["Shuaib Oladigbolu <shuaib@footstep.ninja>"]
 license = "AGPL-3.0-only"

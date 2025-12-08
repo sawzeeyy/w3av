@@ -148,6 +148,7 @@ def is_path_pattern(text):
     - Relative paths: ./file, ../dir
     - API paths: api/users, v1/endpoint
     - Filenames: config.json, styles.css, image.png
+    - URLs with query strings: example.com?query=value
 
     Rejects:
     - Single word with trailing slash: mrFlatpickr/
@@ -164,6 +165,25 @@ def is_path_pattern(text):
     # Check if it's a legitimate filename with valid extension
     if is_filename_pattern(text):
         return True
+
+    # If it has query parameters or fragments, check the base part
+    # This handles cases like: /path?query, path?query, domain.com?query
+    if '?' in text or '#' in text:
+        # Extract base (before ? or #)
+        base = re.split(r'[?#]', text)[0]
+        if not base:
+            return False
+        # Check if base is a valid URL or path
+        # For query params, we're more lenient - just need something before the ?
+        if base.startswith('/'):
+            return True  # Any path with query/fragment is valid
+        elif '/' in base:
+            return True  # Paths like 'api/users?query'
+        elif '.' in base:
+            return True  # Domains like 'example.com?query'
+        # Single word before ? (like 'ABC?query') - check if it looks URL-like
+        # Allow it if it has other URL indicators in the full text
+        return len(base) >= 2  # Minimum length for base part
 
     # Absolute paths (minimum 2 chars after /, allowing query/fragment)
     # Match: /path, /path/more, /path?query, /path#hash, /path?q#h
