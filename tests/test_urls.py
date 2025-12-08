@@ -391,6 +391,48 @@ class TestJunkFiltering:
         assert '/api/v1/yyyy/mm/dd' in urls
         assert '/api/2024/12/07/posts' in urls
 
+    def test_timezone_identifiers_filtered(self):
+        """Test that IANA timezone identifiers are filtered out."""
+        from tree_sitter import Parser, Language
+        import tree_sitter_javascript
+
+        js_code = """
+        // These should be FILTERED (timezone identifiers)
+        const tz1 = "Europe/Bucharest";
+        const tz2 = "America/New_York";
+        const tz3 = "Asia/Tokyo";
+        const tz4 = "Pacific/Auckland";
+        const tz5 = "Africa/Cairo";
+
+        // These should be KEPT (valid URLs containing similar patterns)
+        const url1 = "https://example.com/Europe/Bucharest/weather";
+        const url2 = "/api/Europe/data";
+        const url3 = "https://cdn.example.com/assets/America/config.js";
+        """
+
+        JS_LANGUAGE = Language(tree_sitter_javascript.language())
+        parser = Parser(JS_LANGUAGE)
+        tree = parser.parse(bytes(js_code, 'utf8'))
+
+        urls = get_urls(
+            node=tree.root_node,
+            placeholder='FUZZ',
+            include_templates=True,
+            verbose=False
+        )
+
+        # Timezone identifiers should be filtered
+        assert 'Europe/Bucharest' not in urls
+        assert 'America/New_York' not in urls
+        assert 'Asia/Tokyo' not in urls
+        assert 'Pacific/Auckland' not in urls
+        assert 'Africa/Cairo' not in urls
+
+        # Valid URLs with similar patterns should be kept
+        assert 'https://example.com/Europe/Bucharest/weather' in urls
+        assert '/api/Europe/data' in urls
+        assert 'https://cdn.example.com/assets/America/config.js' in urls
+
 
 class TestVariableReassignment:
     """Test variable reassignment handling."""
