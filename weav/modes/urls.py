@@ -7,11 +7,21 @@ from weav.core.url_utils import is_url_pattern, is_path_pattern
 from weav.core.html import extract_urls_from_html, extract_inline_scripts_from_html
 
 
-# Load MIME types from config file
+# Load MIME types from config files
 def load_mime_types():
+    mime_types = set()
+
+    # Load IANA official MIME types
+    with importlib.resources.files('weav.config').joinpath('iana-mimetypes.txt')\
+            .open('r') as file:
+        mime_types.update(line.strip() for line in file if line.strip())
+
+    # Load additional non-standard MIME types
     with importlib.resources.files('weav.config').joinpath('mimetypes.txt')\
             .open('r') as file:
-        return set(line.strip() for line in file if line.strip())
+        mime_types.update(line.strip() for line in file if line.strip())
+
+    return mime_types
 
 
 def clean_unbalanced_brackets(text):
