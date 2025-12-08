@@ -433,6 +433,66 @@ class TestJunkFiltering:
         assert '/api/Europe/data' in urls
         assert 'https://cdn.example.com/assets/America/config.js' in urls
 
+    def test_filename_extraction(self):
+        """Test that legitimate filenames with valid extensions are extracted."""
+        from tree_sitter import Parser, Language
+        import tree_sitter_javascript
+
+        js_code = """
+        // These should be EXTRACTED (valid filenames)
+        const file1 = "config.json";
+        const file2 = "jquery.min.js";
+        const file3 = "bootstrap.bundle.min.css";
+        const file4 = "archive.tar.gz";
+        const file5 = "my-document_v2.pdf";
+        const file6 = "a1.js";  // short but has number
+        const file7 = "styles.css";
+        const file8 = "image.png";
+
+        // These should be FILTERED (property access patterns)
+        const prop1 = "window.location";
+        const prop2 = "user.name";
+        const prop3 = "a.b";  // too short
+        const prop4 = "object.property.value";
+
+        // These should be EXTRACTED (paths with filenames)
+        const path1 = "/assets/styles.css";
+        const path2 = "./config.json";
+        const path3 = "https://cdn.example.com/lib/jquery.min.js";
+        """
+
+        JS_LANGUAGE = Language(tree_sitter_javascript.language())
+        parser = Parser(JS_LANGUAGE)
+        tree = parser.parse(bytes(js_code, 'utf8'))
+
+        urls = get_urls(
+            node=tree.root_node,
+            placeholder='FUZZ',
+            include_templates=True,
+            verbose=False
+        )
+
+        # Valid filenames should be extracted
+        assert 'config.json' in urls
+        assert 'jquery.min.js' in urls
+        assert 'bootstrap.bundle.min.css' in urls
+        assert 'archive.tar.gz' in urls
+        assert 'my-document_v2.pdf' in urls
+        assert 'a1.js' in urls
+        assert 'styles.css' in urls
+        assert 'image.png' in urls
+
+        # Property access patterns should be filtered
+        assert 'window.location' not in urls
+        assert 'user.name' not in urls
+        assert 'a.b' not in urls
+        assert 'object.property.value' not in urls
+
+        # Paths with filenames should be extracted
+        assert '/assets/styles.css' in urls
+        assert './config.json' in urls
+        assert 'https://cdn.example.com/lib/jquery.min.js' in urls
+
 
 class TestVariableReassignment:
     """Test variable reassignment handling."""

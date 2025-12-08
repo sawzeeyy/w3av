@@ -6,6 +6,88 @@ Used by both the HTML parser and JavaScript string extraction.
 """
 
 import re
+import importlib.resources
+
+
+# Cache for file extensions
+_file_extensions = None
+
+
+def load_file_extensions():
+    """
+    Loads valid file extensions from config/file-extensions.txt.
+    Returns a set of extensions (without dots).
+    Cached after first load.
+    """
+    global _file_extensions
+
+    if _file_extensions is not None:
+        return _file_extensions
+
+    extensions = set()
+    with importlib.resources.files('weav.config').joinpath('file-extensions.txt').open('r') as file:
+        for line in file:
+            ext = line.strip()
+            if ext:
+                extensions.add(ext.lower())
+
+    _file_extensions = extensions
+    return _file_extensions
+
+
+def is_filename_pattern(text):
+    """
+    Detects if text is a legitimate filename with a valid extension.
+
+    Matches:
+    - Simple filenames: config.json, styles.css, image.png
+    - Complex filenames: my-file.tar.gz, document_v2.pdf
+    - Filenames with multiple dots: jquery.min.js, bootstrap.bundle.min.css
+
+    Rejects:
+    - Too generic: single letter before extension (a.js, x.pdf)
+    - Property access: object.property, window.location
+    - No extension: just_a_word
+    - Timezone-like: Europe/Bucharest (handled elsewhere)
+    """
+    if not text or not isinstance(text, str):
+        return False
+
+    # Must not contain path separators (those are paths, not filenames)
+    if '/' in text or '\\' in text:
+        return False
+
+    # Must have at least one dot
+    if '.' not in text:
+        return False
+
+    # Get the extension (everything after the last dot)
+    parts = text.rsplit('.', 1)
+    if len(parts) != 2:
+        return False
+
+    basename, extension = parts
+
+    # Reject if basename is too short (likely property access like 'a.b')
+    # Allow at least 2 characters or common single-char prefixes with numbers
+    if len(basename) < 2 and not re.match(r'^[a-zA-Z]\d+$', basename):
+        return False
+
+    # Check if extension is valid
+    extensions = load_file_extensions()
+
+    # Handle compound extensions like .tar.gz
+    # Check both the final extension and the compound extension
+    if extension.lower() in extensions:
+        return True
+
+    # Check for compound extensions (e.g., tar.gz, min.js)
+    if '.' in basename:
+        compound_ext = basename.split('.')[-1] + '.' + extension
+        if compound_ext.lower() in extensions:
+            return True
+
+    return False
 
 
 def is_url_pattern(text):
@@ -65,6 +147,7 @@ def is_path_pattern(text):
     - Paths with fragments: /page#section
     - Relative paths: ./file, ../dir
     - API paths: api/users, v1/endpoint
+    - Filenames: config.json, styles.css, image.png
 
     Rejects:
     - Single word with trailing slash: mrFlatpickr/
@@ -77,6 +160,10 @@ def is_path_pattern(text):
     # Reject protocol-relative URLs
     if text.startswith('//'):
         return False
+
+    # Check if it's a legitimate filename with valid extension
+    if is_filename_pattern(text):
+        return True
 
     # Absolute paths (minimum 2 chars after /, allowing query/fragment)
     # Match: /path, /path/more, /path?query, /path#hash, /path?q#h

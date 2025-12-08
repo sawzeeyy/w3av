@@ -3,7 +3,7 @@ import sys
 import importlib.resources
 
 from weav.core.jsparser import parse_javascript
-from weav.core.url_utils import is_url_pattern, is_path_pattern
+from weav.core.url_utils import is_url_pattern, is_path_pattern, is_filename_pattern
 from weav.core.html import extract_urls_from_html, extract_inline_scripts_from_html
 
 
@@ -121,8 +121,11 @@ def is_junk_url(text, placeholder='FUZZ'):
         return True
 
     # Property paths (word.word.word without slashes)
+    # BUT exclude legitimate filenames with valid extensions
     if re.match(r'^[a-z]+\.[a-z]+\.[a-z.]+$', text, re.IGNORECASE) and '/' not in text:
-        return True
+        # Check if it's a valid filename first
+        if not is_filename_pattern(text):
+            return True
 
     # W3C/XML namespaces
     if text.startswith('http://www.w3.org/'):
