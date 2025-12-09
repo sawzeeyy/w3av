@@ -3,7 +3,7 @@ name = "weav"
 version = "0.1.8"
 description = "extract URLs, strings, and more from JavaScript code"
 authors = ["Shuaib Oladigbolu <shuaib@footstep.ninja>"]
-license = "AGPL-3.0-only"
+license = "MIT"
 readme = "README.md"
 include = [
 	"weav/config/nodetypes.txt",
