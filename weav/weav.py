@@ -12,8 +12,8 @@ from weav.modes.query import query_nodes
 
 
 def main():
-    if sys.version_info < (3, 6):
-        print("weav requires Python 3.6 or higher")
+    if sys.version_info < (3, 11):
+        print("weav requires Python 3.11 or higher")
         sys.exit(1)
 
     args = parse_arguments()
