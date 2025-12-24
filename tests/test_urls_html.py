@@ -323,11 +323,11 @@ class TestHtmlEdgeCases:
         assert urls == []
 
     def test_skip_javascript_protocol(self):
-        """Skip javascript: protocol URLs."""
+        """Skip javascript: and tel: protocol URLs, but keep mailto:."""
         _, root = parse_js_file('skip_protocols.js')
         urls = get_urls(root, 'FUZZ', False, False)
         assert 'javascript:void(0)' not in urls
-        assert 'mailto:test@example.com' not in urls
+        assert 'mailto:test@example.com' in urls  # Keep mailto: URLs
         assert 'tel:+1234567890' not in urls
         assert '/valid' in urls
 

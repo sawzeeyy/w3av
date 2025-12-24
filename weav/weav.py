@@ -32,7 +32,9 @@ def main():
             args.skip_symbols,
             args.skip_aliases,
             args.context,
-            args.context_policy
+            args.context_policy,
+            args.javascript,
+            args.extensions
         )
     elif args.mode == 'tree':
         result = get_syntax_tree(

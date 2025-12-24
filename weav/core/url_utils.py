@@ -35,7 +35,7 @@ def load_file_extensions():
     return _file_extensions
 
 
-def is_filename_pattern(text):
+def is_filename_pattern(text, custom_extensions=None):
     """
     Detects if text is a legitimate filename with a valid extension.
 
@@ -49,6 +49,10 @@ def is_filename_pattern(text):
     - Property access: object.property, window.location
     - No extension: just_a_word
     - Timezone-like: Europe/Bucharest (handled elsewhere)
+
+    Args:
+        text: String to check
+        custom_extensions: Optional set of additional extensions to recognize (e.g., {'.proto', '.graphql'})
     """
     if not text or not isinstance(text, str):
         return False
@@ -75,6 +79,10 @@ def is_filename_pattern(text):
 
     # Check if extension is valid
     extensions = load_file_extensions()
+
+    # Add custom extensions if provided
+    if custom_extensions:
+        extensions = extensions | custom_extensions
 
     # Handle compound extensions like .tar.gz
     # Check both the final extension and the compound extension
@@ -163,7 +171,15 @@ def is_path_pattern(text):
         return False
 
     # Check if it's a legitimate filename with valid extension
-    if is_filename_pattern(text):
+    # Try to get custom extensions from urls module (if available)
+    custom_exts = None
+    try:
+        from weav.modes.urls import get_custom_extensions
+        custom_exts = get_custom_extensions()
+    except (ImportError, AttributeError):
+        pass
+
+    if is_filename_pattern(text, custom_exts):
         return True
 
     # If it has query parameters, check the base part
@@ -180,10 +196,21 @@ def is_path_pattern(text):
         elif '/' in base:
             return True  # Paths like 'api/users?query'
         elif '.' in base:
-            return True  # Domains like 'example.com?query'
+            # Check if it looks like a domain, not just any text with dots
+            # Should not have spaces, special chars except dash/underscore
+            # Should look like domain.com pattern
+            if ' ' in base or re.search(r'[;:,!@#$%^&*()+=\[\]{}\'"]', base):
+                return False
+            # Must have alphanumeric parts separated by dots
+            if re.match(r'^[a-zA-Z0-9-]+\.[a-zA-Z0-9.-]+$', base):
+                return True  # Domains like 'example.com?query'
+            return False
         # Single word before ? (like 'ABC?query') - check if it looks URL-like
         # Allow it if it has other URL indicators in the full text
-        return len(base) >= 2  # Minimum length for base part
+        # Must be alphanumeric with limited special chars
+        if re.match(r'^[a-zA-Z0-9_-]+$', base):
+            return len(base) >= 2  # Minimum length for base part
+        return False
 
     # Absolute paths (minimum 2 chars after /)
     # Match: /path, /path/more, /path?query, /path#hash, /path?q#h

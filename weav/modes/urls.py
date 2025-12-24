@@ -8,6 +8,14 @@ from weav.core.url_utils import is_url_pattern, is_path_pattern, is_filename_pat
 from weav.core.html import extract_urls_from_html, extract_inline_scripts_from_html
 from weav.core.context import populate_symbol_tables, should_skip_pass1, should_use_file_value
 
+# Global variable to store custom file extensions for the current extraction
+_custom_file_extensions = set()
+
+
+def get_custom_extensions():
+    """Return the current custom file extensions."""
+    return _custom_file_extensions
+
 
 # Load MIME types from config files
 def load_mime_types():
@@ -126,7 +134,7 @@ def is_junk_url(text, placeholder='FUZZ'):
     # BUT exclude legitimate filenames with valid extensions
     if re.match(r'^[a-z]+\.[a-z]+\.[a-z.]+$', text, re.IGNORECASE) and '/' not in text:
         # Check if it's a valid filename first
-        if not is_filename_pattern(text):
+        if not is_filename_pattern(text, get_custom_extensions()):
             return True
 
     # W3C/XML namespaces
@@ -657,9 +665,91 @@ def scan_sibling_nodes_for_aliases(parent_node, var_name):
                     scan_for_urlsearchparams(value_node, {var_name})
 
 
+def decode_js_string(text):
+    """
+    Decode JavaScript string escape sequences to their actual characters.
+    Handles: \\xHH, \\uHHHH, \\u{HHHHHH}, \\OOO (octal), \\n, \\t, \\r, etc.
+    """
+    if not text:
+        return text
+
+    result = []
+    i = 0
+    while i < len(text):
+        if text[i] == '\\' and i + 1 < len(text):
+            next_char = text[i + 1]
+
+            # Hex escape: \xHH
+            if next_char == 'x' and i + 3 < len(text):
+                try:
+                    hex_code = text[i+2:i+4]
+                    result.append(chr(int(hex_code, 16)))
+                    i += 4
+                    continue
+                except (ValueError, OverflowError):
+                    pass
+
+            # Unicode escape: \uHHHH
+            elif next_char == 'u':
+                # Unicode code point: \u{HHHHHH}
+                if i + 2 < len(text) and text[i+2] == '{':
+                    end = text.find('}', i+3)
+                    if end != -1:
+                        try:
+                            code_point = text[i+3:end]
+                            result.append(chr(int(code_point, 16)))
+                            i = end + 1
+                            continue
+                        except (ValueError, OverflowError):
+                            pass
+                # Standard unicode: \uHHHH
+                elif i + 5 < len(text):
+                    try:
+                        unicode_code = text[i+2:i+6]
+                        result.append(chr(int(unicode_code, 16)))
+                        i += 6
+                        continue
+                    except (ValueError, OverflowError):
+                        pass
+
+            # Octal escape: \OOO (up to 3 digits)
+            elif next_char.isdigit():
+                octal_str = ''
+                j = i + 1
+                while j < len(text) and j < i + 4 and text[j].isdigit():
+                    octal_str += text[j]
+                    j += 1
+                try:
+                    result.append(chr(int(octal_str, 8)))
+                    i = j
+                    continue
+                except (ValueError, OverflowError):
+                    pass
+
+            # Standard escapes
+            escape_map = {
+                'n': '\n', 't': '\t', 'r': '\r',
+                'b': '\b', 'f': '\f', 'v': '\v',
+                '\\': '\\', "'": "'", '"': '"', '0': '\0'
+            }
+            if next_char in escape_map:
+                result.append(escape_map[next_char])
+                i += 2
+                continue
+
+            # Unknown escape, keep as-is
+            result.append(text[i])
+            i += 1
+        else:
+            result.append(text[i])
+            i += 1
+
+    return ''.join(result)
+
+
 def extract_string_value(node):
     """
-    Extracts clean string value from AST string node (removes quotes).
+    Extracts clean string value from AST string node (removes quotes and decodes escapes).
     """
     if node.type != 'string':
         return None
@@ -668,8 +758,10 @@ def extract_string_value(node):
     # Remove quotes
     if (text.startswith('"') and text.endswith('"')) or \
        (text.startswith("'") and text.endswith("'")):
-        return text[1:-1]
-    return text
+        text = text[1:-1]
+
+    # Decode JavaScript escape sequences
+    return decode_js_string(text)
 
 
 def resolve_member_expression(node, placeholder='FUZZ'):
@@ -1378,15 +1470,25 @@ def convert_route_params(text, placeholder='FUZZ'):
         'archives/vendor-list-v[VERSION].json' -> ('archives/vendor-list-v[VERSION].json', 'archives/vendor-list-v{VERSION}.json', True)
         '/blog/:slug/comments/:commentId' -> ('/blog/:slug/comments/:commentId', '/blog/{slug}/comments/{commentId}', True)
         '/static/path' -> ('/static/path', '/static/path', False)
+        'https://user:pass@host' -> ('https://user:pass@host', 'https://user:pass@host', False)  # Don't match auth colons
     """
     has_params = False
     converted = text
 
-    # Match route parameters like :id, :slug, :userId
-    route_param_pattern = r':([a-zA-Z_][a-zA-Z0-9_]*)'
-    if re.search(route_param_pattern, converted):
-        converted = re.sub(route_param_pattern, r'{\1}', converted)
-        has_params = True
+    # Check if this looks like a URL with authentication (contains ://...@)
+    # If so, skip route param conversion entirely to avoid matching auth colons
+    if re.search(r'://[^/]*@', text):
+        # Has URL authentication, don't convert route params
+        # because we might accidentally match username:password
+        pass
+    else:
+        # No authentication, safe to match route params
+        # Match : followed by identifier, but only when preceded by /
+        # This catches /api/:id but not plain user:password
+        route_param_pattern = r'/:([a-zA-Z_][a-zA-Z0-9_]*)'
+        if re.search(route_param_pattern, converted):
+            converted = re.sub(route_param_pattern, r'/{\1}', converted)
+            has_params = True
 
     # Match bracket parameters like [VERSION], [ID], [param]
     bracket_param_pattern = r'\[([a-zA-Z_][a-zA-Z0-9_]*)\]'
@@ -1496,10 +1598,18 @@ def process_template_string(node, placeholder):
     for child in node.named_children:
         if child.type == 'string_fragment':
             text = child.text.decode('utf8')
+            # Decode escape sequences in template string fragments
+            text = decode_js_string(text)
             # Convert route parameters in literal fragments before adding to parts
             _, converted_text, _ = convert_route_params(text, placeholder)
             original_parts.append(converted_text)
             resolved_parts_lists.append([converted_text])  # Single value - the literal text
+        elif child.type == 'escape_sequence':
+            # Handle escape sequences in template strings (e.g., \x3d, \u003d)
+            text = child.text.decode('utf8')
+            decoded = decode_js_string(text)
+            original_parts.append(decoded)
+            resolved_parts_lists.append([decoded])
         elif child.type == 'template_substitution':
             has_template = True
             expr = child.named_child(0)
@@ -2068,7 +2178,7 @@ def process_call_expression(node, placeholder):
 
 def process_comments(node, placeholder, verbose):
     """
-    Extracts and parses JavaScript code from within comments.
+    Extracts URLs from JavaScript comments and attempts to parse code within them.
     """
     if node.type not in ['comment', 'hash_bang_line']:
         return
@@ -2083,7 +2193,34 @@ def process_comments(node, placeholder, verbose):
     elif text.startswith('#!'):
         text = text[2:].strip()
 
-    # Try to parse as JavaScript
+    if not text:
+        return
+
+    # Extract URLs directly from comment text using regex
+    found_urls = []
+
+    # Match full URLs
+    url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+'
+    found_urls.extend(re.findall(url_pattern, text))
+
+    # Match path patterns
+    path_pattern = r'(?:^|[\s,;])((?:/[a-zA-Z0-9_\-./{}:]+)|(?:\./[a-zA-Z0-9_\-./]+)|(?:\.\./[a-zA-Z0-9_\-./]+))'
+    found_paths = re.findall(path_pattern, text)
+    found_urls.extend(found_paths)
+
+    # Add found URLs as entries
+    for url in found_urls:
+        url = url.strip()
+        if url and (is_url_pattern(url) or is_path_pattern(url)):
+            entry = {
+                'original': url,
+                'placeholder': url,
+                'resolved': url,
+                'has_template': False
+            }
+            add_url_entry(entry, verbose)
+
+    # Try to parse as JavaScript code (for commented-out code)
     try:
         _, comment_root = parse_javascript(text)
         traverse_node(comment_root, placeholder, verbose)
@@ -2176,14 +2313,58 @@ def format_output(include_templates, placeholder):
     return results
 
 
+def is_html_content(text):
+    """
+    Detect if the input is HTML content.
+    Checks for common HTML patterns at the start of the content.
+    """
+    if not text:
+        return False
+
+    text_stripped = text.strip()
+    if not text_stripped:
+        return False
+
+    # Check for common HTML indicators
+    html_indicators = [
+        '<!DOCTYPE html',
+        '<!doctype html',
+        '<html',
+        '<HTML',
+        '<head',
+        '<HEAD',
+        '<body',
+        '<BODY',
+    ]
+
+    text_lower = text_stripped[:200].lower()
+
+    # Check for DOCTYPE or html/head/body tags near the start
+    for indicator in html_indicators:
+        if indicator.lower() in text_lower:
+            return True
+
+    # Check if it starts with <script> or <html-like> tags
+    if text_stripped.startswith('<') and '>' in text_stripped[:100]:
+        # Has opening tag structure
+        first_tag_end = text_stripped.find('>')
+        if first_tag_end > 0:
+            first_tag = text_stripped[:first_tag_end + 1]
+            # Check if it looks like an HTML tag (not just a comparison operator)
+            if '<script' in first_tag.lower() or first_tag.count('<') == 1:
+                return True
+
+    return False
+
+
 def get_urls(node, placeholder, include_templates, verbose, file_size=0, max_nodes=1000000,
              max_file_size_mb=1.0, html_parser='lxml', skip_symbols=False, skip_aliases=False,
-             context=None, context_policy='merge'):
+             context=None, context_policy='merge', source_text=None, extensions=None):
     """
     Main function - orchestrates the two-pass extraction.
 
     Parameters:
-    - node: Root AST node from tree-sitter
+    - node: Root AST node from tree-sitter (can be None if source_text is HTML)
     - placeholder: String for unknown values (default: "FUZZ")
     - include_templates: Whether to include templated URLs
     - verbose: Print URLs as discovered
@@ -2195,15 +2376,61 @@ def get_urls(node, placeholder, include_templates, verbose, file_size=0, max_nod
     - skip_aliases: Skip semantic alias extraction (default: False)
     - context: Parsed context dictionary (external variable definitions)
     - context_policy: How to handle context/file collisions ('merge', 'override', 'only')
+    - source_text: Original source text (for HTML detection)
 
     Note: Large files (>max_file_size_mb) automatically skip both symbols and aliases.
           Context forces symbol resolution even for large files.
+          If source_text is HTML, will extract from HTML attributes and inline scripts.
 
     Returns:
     - List of URLs
     """
+    # Check if input is HTML content
+    if source_text and is_html_content(source_text):
+        result = []
+
+        # Extract URLs from HTML attributes
+        html_urls = extract_urls_from_html(source_text, placeholder=placeholder, html_parser=html_parser)
+        if html_urls:
+            result.extend([entry.get('resolved', entry.get('url', '')) for entry in html_urls if entry.get('resolved') or entry.get('url')])        # Extract and parse inline JavaScript
+        inline_scripts = extract_inline_scripts_from_html(source_text, html_parser=html_parser)
+        for script_code in inline_scripts:
+            try:
+                _, script_root_node = parse_javascript(script_code)
+                # Recursively call get_urls on the inline script
+                script_urls = get_urls(
+                    script_root_node,
+                    placeholder,
+                    include_templates,
+                    verbose,
+                    len(script_code),
+                    max_nodes,
+                    max_file_size_mb,
+                    html_parser,
+                    skip_symbols,
+                    skip_aliases,
+                    context,
+                    context_policy,
+                    source_text=None,  # Don't re-check HTML for inline scripts
+                    extensions=extensions
+                )
+                if script_urls:
+                    result.extend(script_urls)
+            except Exception:
+                # Skip scripts that fail to parse
+                pass
+
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_result = []
+        for url in result:
+            if url not in seen:
+                seen.add(url)
+                unique_result.append(url)
+
+        return unique_result
     # Reset global state
-    global url_entries, symbol_table, object_table, array_table, seen_urls, node_visit_count, max_nodes_limit, mime_types, html_parser_backend, alias_table, disable_semantic_aliases
+    global url_entries, symbol_table, object_table, array_table, seen_urls, node_visit_count, max_nodes_limit, mime_types, html_parser_backend, alias_table, disable_semantic_aliases, _custom_file_extensions
     url_entries = []
     symbol_table = {}
     object_table = {}
@@ -2214,6 +2441,17 @@ def get_urls(node, placeholder, include_templates, verbose, file_size=0, max_nod
     max_nodes_limit = max_nodes
     mime_types = load_mime_types()
     html_parser_backend = html_parser
+
+    # Parse and normalize custom file extensions
+    _custom_file_extensions = set()
+    if extensions:
+        for ext in extensions.split(','):
+            ext = ext.strip()
+            if ext:
+                # Normalize: remove dot prefix if present, then lowercase
+                if ext.startswith('.'):
+                    ext = ext[1:]
+                _custom_file_extensions.add(ext.lower())
 
     # Pre-populate tables from context if provided
     context_provided = context is not None and context

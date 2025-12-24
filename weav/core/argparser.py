@@ -171,6 +171,12 @@ def parse_arguments():
              'override: context takes precedence, '
              'only: use context exclusively (skip symbols resolution in JavaScript file)'
     )
+    parser_urls.add_argument(
+        '--extensions',
+        type=str,
+        metavar='EXTS',
+        help='Additional file extensions to recognize (comma-separated, e.g., ".proto,.graphql" or "proto,graphql")'
+    )
 
     # Tree
     parser_tree = add_subparser_with_common_args(

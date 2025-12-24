@@ -9,6 +9,7 @@ env/
 
 # Test cache
 .pytest_cache/
+.coverage
 
 # Node.js artifacts
 node_modules/
@@ -27,9 +28,6 @@ dist/
 # Output and generated files
 explore/
 test_*.js
-
-# Ignore lock files
-poetry.lock
 
 # Ignore compiled JS
 *.min.js

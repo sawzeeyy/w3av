@@ -14,6 +14,7 @@ aas
 abw
 ac
 acc
+accdb
 ace
 acu
 acutc
@@ -44,10 +45,17 @@ appxbundle
 apr
 arc
 arj
+asa
 asc
+ascx
 asf
+asgi
+ashx
 asm
+asmx
 aso
+asp
+astro
 asx
 atc
 atom
@@ -61,11 +69,13 @@ avcs
 avi
 avif
 aw
+axd
 azf
 azs
 azv
 azw
 b16
+babelrc
 bat
 bcpio
 bdf
@@ -74,6 +84,7 @@ bdoc
 bed
 bh2
 bin
+blade
 blb
 blorb
 bmi
@@ -83,10 +94,12 @@ book
 box
 boz
 bpk
+browser
 bsp
 btf
 btif
 buffer
+build
 bz
 bz2
 c
@@ -123,7 +136,9 @@ cdmiq
 cdx
 cdxml
 cdy
+celeryconfig
 cer
+cfg
 cfs
 cgm
 chat
@@ -147,9 +162,11 @@ cmdf
 cml
 cmp
 cmx
+cnf
 cod
 coffee
 com
+composer
 conf
 cpio
 cpl
@@ -161,9 +178,11 @@ crt
 crx
 cryptonote
 csh
+cshtml
 csl
 csml
 csp
+csproj
 css
 cst
 csv
@@ -221,9 +240,11 @@ dsc
 dssc
 dtb
 dtd
+dtl
 dts
 dtshd
 dump
+dust
 dvb
 dvi
 dwd
@@ -237,6 +258,7 @@ ecelp4800
 ecelp7470
 ecelp9600
 ecma
+ect
 edm
 edx
 efif
@@ -247,13 +269,16 @@ eml
 emma
 emotionml
 emz
+env
 eol
 eot
 eps
 epub
+erb
 es3
 esa
 esf
+eslintrc
 et3
 etx
 eva
@@ -299,9 +324,11 @@ for
 fpx
 frame
 fsc
+fsproj
 fst
 ftc
 fti
+ftl
 fvt
 fxp
 fxpl
@@ -316,6 +343,7 @@ gca
 gdl
 gdoc
 ged
+gemfile
 geo
 geojson
 gex
@@ -333,6 +361,7 @@ gph
 gpx
 gqf
 gqs
+gradle
 gram
 gramps
 gre
@@ -341,6 +370,7 @@ grxml
 gsf
 gsheet
 gslides
+gsp
 gtar
 gtm
 gtw
@@ -353,6 +383,8 @@ h261
 h263
 h264
 hal
+haml
+handlebars
 hbci
 hbs
 hdd
@@ -364,6 +396,7 @@ heifs
 hej2
 held
 hh
+hibernate
 hjson
 hlp
 hpgl
@@ -375,6 +408,7 @@ htc
 htke
 htm
 html
+httpd
 hvd
 hvp
 hvs
@@ -397,6 +431,7 @@ img
 imp
 ims
 in
+inc
 ini
 ink
 inkml
@@ -418,6 +453,8 @@ jar
 jardiff
 java
 jhc
+jinja
+jinja2
 jisp
 jls
 jlt
@@ -436,10 +473,14 @@ jph
 jpm
 jpx
 js
+jsconfig
 json
 json5
 jsonld
 jsonml
+jsp
+jspf
+jspx
 jsx
 jt
 jxr
@@ -472,6 +513,7 @@ kwd
 kwt
 lasxml
 latex
+latte
 lbd
 lbe
 les
@@ -479,6 +521,7 @@ less
 lgr
 lha
 link66
+liquid
 list
 list3820
 listafp
@@ -513,11 +556,15 @@ mads
 maei
 mag
 maker
+mako
 man
+manage
 manifest
 map
 mar
 markdown
+marko
+master
 mathml
 mb
 mbk
@@ -606,6 +653,7 @@ mts
 mus
 musd
 musicxml
+mustache
 mvb
 mvt
 mwf
@@ -615,6 +663,7 @@ mxmf
 mxml
 mxs
 mxu
+my
 n-gage
 n3
 nb
@@ -623,6 +672,7 @@ nc
 ncx
 nfo
 ngdat
+nginx
 nitf
 nlu
 nml
@@ -636,6 +686,7 @@ nsf
 nt
 ntf
 numbers
+nunjucks
 nzb
 oa2
 oa3
@@ -704,6 +755,7 @@ pcap
 pcf
 pcl
 pclxl
+pcss
 pct
 pcurl
 pcx
@@ -716,10 +768,12 @@ pfb
 pfm
 pfr
 pfx
+pg_hba
 pgm
 pgn
 pgp
 php
+phtml
 pic
 pkg
 pki
@@ -734,7 +788,9 @@ pm
 pml
 png
 pnm
+pom
 portpkg
+postcss
 pot
 potm
 potx
@@ -750,7 +806,9 @@ pptx
 pqa
 prc
 pre
+prettierrc
 prf
+properties
 provx
 ps
 psb
@@ -760,6 +818,8 @@ pskcxml
 pti
 ptid
 pub
+pubspec
+pug
 pvb
 pwn
 pya
@@ -783,6 +843,7 @@ raml
 rapd
 rar
 ras
+razor
 rcprofile
 rdf
 rdz
@@ -791,6 +852,7 @@ rep
 res
 rgb
 rif
+riot
 rip
 ris
 rl
@@ -818,12 +880,14 @@ rss
 rtf
 rtx
 run
+runtime
 rusd
 s
 s3m
 saf
 sass
 sbml
+sbt
 sc
 scd
 scm
@@ -849,6 +913,7 @@ sensmlx
 ser
 setpay
 setreg
+settings
 sfd-hdstx
 sfs
 sfv
@@ -869,9 +934,11 @@ silo
 sis
 sisx
 sit
+sitemap
 sitx
 siv
 skd
+skin
 skm
 skp
 skt
@@ -879,9 +946,11 @@ sldm
 sldx
 slim
 slm
+sln
 sls
 slt
 sm
+smarty
 smf
 smi
 smil
@@ -899,6 +968,7 @@ spp
 spq
 spx
 sql
+sqlite
 src
 srt
 sru
@@ -907,6 +977,7 @@ ssdl
 sse
 ssf
 ssml
+sss
 st
 stc
 std
@@ -922,6 +993,8 @@ stw
 styl
 stylus
 sub
+sugarss
+supervisord
 sus
 susp
 sv4cpio
@@ -934,6 +1007,7 @@ swa
 swf
 swi
 swidtag
+swig
 sxc
 sxd
 sxg
@@ -943,6 +1017,7 @@ sxw
 t
 t3
 t38
+tag
 taglet
 tao
 tap
@@ -965,7 +1040,9 @@ thmx
 tif
 tiff
 tk
+tld
 tmo
+tmpl
 toml
 torrent
 tpl
@@ -975,6 +1052,7 @@ tra
 trig
 trm
 ts
+tsconfig
 tsd
 tsv
 ttc
@@ -983,6 +1061,7 @@ ttl
 ttml
 twd
 twds
+twig
 txd
 txf
 txt
@@ -1037,8 +1116,10 @@ uvvx
 uvvz
 uvx
 uvz
+vbhtml
 vbox
 vbox-extpack
+vbproj
 vcard
 vcd
 vcf
@@ -1050,6 +1131,7 @@ vds
 vhd
 vis
 viv
+vm
 vmdk
 vob
 vor
@@ -1108,6 +1190,7 @@ wri
 wrl
 wsc
 wsdl
+wsgi
 wspolicy
 wtb
 wvx

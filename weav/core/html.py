@@ -1,4 +1,5 @@
-from bs4 import BeautifulSoup
+import re
+from bs4 import BeautifulSoup, Comment
 from weav.core.url_utils import is_url_pattern, is_path_pattern, is_filename_pattern
 
 """
@@ -103,7 +104,7 @@ def extract_urls_from_html(html_string, placeholder='FUZZ', html_parser='lxml'):
 
                         for u in urls:
                             # Skip common non-URLs
-                            if u.startswith('#') or u.startswith('javascript:') or u.startswith('data:'):
+                            if u.startswith('#') or u.startswith('javascript:') or u.startswith('data:') or u.startswith('tel:'):
                                 continue
 
                             # Check if it's a URL/path pattern
@@ -125,7 +126,7 @@ def extract_urls_from_html(html_string, placeholder='FUZZ', html_parser='lxml'):
                     url = url.strip()
 
                     # Skip common non-URLs
-                    if url.startswith('#') or url.startswith('javascript:') or url.startswith('data:'):
+                    if url.startswith('#') or url.startswith('javascript:') or url.startswith('data:') or url.startswith('tel:'):
                         continue
 
                     # Check if it's a URL/path pattern
@@ -138,6 +139,38 @@ def extract_urls_from_html(html_string, placeholder='FUZZ', html_parser='lxml'):
                             'has_template': False
                         }
                         entries.append(entry)
+
+        # Extract URLs from HTML comments
+        for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
+            comment_text = str(comment).strip()
+            if comment_text:
+                # Extract URLs using regex patterns
+                found_urls = []
+
+                # Match full URLs
+                url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+'
+                found_urls.extend(re.findall(url_pattern, comment_text))
+
+                # Extract URLs from href/src/action attributes (for commented HTML)
+                attr_pattern = r'(?:href|src|action|data)\s*=\s*["\']([^"\']+)["\']'
+                found_urls.extend(re.findall(attr_pattern, comment_text))
+
+                # Match path patterns
+                path_pattern = r'(?:^|[\s,;])((?:/[a-zA-Z0-9_\-./{}: ]+)|(?:\./[a-zA-Z0-9_\-./]+)|(?:\.\./[a-zA-Z0-9_\-./]+))'
+                found_paths = re.findall(path_pattern, comment_text)
+                found_urls.extend(found_paths)
+
+                for url in found_urls:
+                    url = url.strip()
+                    if url and not url.startswith('#') and not url.startswith('javascript:') and not url.startswith('data:') and not url.startswith('tel:'):
+                        if is_url_pattern(url) or is_path_pattern(url):
+                            entry = {
+                                'original': url,
+                                'placeholder': url,
+                                'resolved': url,
+                                'has_template': False
+                            }
+                            entries.append(entry)
 
     except Exception:
         # If HTML parsing fails, silently skip

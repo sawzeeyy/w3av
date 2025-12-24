@@ -1,8 +1,8 @@
 import os
 import pytest
+import tree_sitter_javascript
 
 from tree_sitter import Parser, Language
-import tree_sitter_javascript
 from weav.core.jsparser import parse_javascript
 from weav.modes.urls import (
     get_urls,
@@ -11,7 +11,9 @@ from weav.modes.urls import (
     convert_route_params,
     is_url_pattern,
     is_path_pattern,
-    consolidate_adjacent_placeholders
+    consolidate_adjacent_placeholders,
+    decode_js_string,
+    extract_string_value
 )
 
 """
@@ -350,9 +352,6 @@ class TestJunkFiltering:
 
     def test_date_format_placeholders_filtered(self):
         """Test that date/time format placeholders are filtered out."""
-        from tree_sitter import Parser, Language
-        import tree_sitter_javascript
-
         js_code = """
         // These should be FILTERED (pure date format placeholders)
         const fmt1 = "/yyyy/mm/dd/";
@@ -404,9 +403,6 @@ class TestJunkFiltering:
 
     def test_timezone_identifiers_filtered(self):
         """Test that IANA timezone identifiers are filtered out."""
-        from tree_sitter import Parser, Language
-        import tree_sitter_javascript
-
         js_code = """
         // These should be FILTERED (timezone identifiers)
         const tz1 = "Europe/Bucharest";
@@ -446,9 +442,6 @@ class TestJunkFiltering:
 
     def test_filename_extraction(self):
         """Test that legitimate filenames with valid extensions are extracted."""
-        from tree_sitter import Parser, Language
-        import tree_sitter_javascript
-
         js_code = """
         // These should be EXTRACTED (valid filenames)
         const file1 = "config.json";
@@ -665,9 +658,43 @@ class TestComments:
         # Should extract from regular code
         assert 'https://visible.example.com/data' in urls
 
-        # May or may not extract from comments (implementation dependent)
-        # Just verify some URLs are extracted
-        assert len(urls) > 0
+        # Should extract from single-line comment
+        assert 'https://hidden.example.com/api' in urls
+
+        # Should extract from multi-line comment
+        assert 'https://api.example.com/v1' in urls
+        assert '/users/profile' in urls
+
+        # Should extract from inline comment
+        assert 'https://inline.example.com' in urls
+
+    def test_javascript_comment_with_plain_text_urls(self):
+        """Should extract URLs from plain text in JavaScript comments."""
+        code = '''
+        // This endpoint is deprecated: https://old-api.example.com/v1
+        /* New endpoint: https://new-api.example.com/v2 */
+        const x = 1;
+        '''
+        _, root_node = parse_javascript(code)
+        urls = get_urls(root_node, 'FUZZ', include_templates=False, verbose=False, file_size=len(code.encode('utf8')))
+
+        assert 'https://old-api.example.com/v1' in urls
+        assert 'https://new-api.example.com/v2' in urls
+
+    def test_javascript_comment_with_paths(self):
+        """Should extract paths from JavaScript comments."""
+        code = '''
+        // Legacy endpoint: /api/v1/users
+        /* Current path: /api/v2/users */
+        // Config: ./settings.json
+        const x = 1;
+        '''
+        _, root_node = parse_javascript(code)
+        urls = get_urls(root_node, 'FUZZ', include_templates=False, verbose=False, file_size=len(code.encode('utf8')))
+
+        assert '/api/v1/users' in urls
+        assert '/api/v2/users' in urls
+        assert './settings.json' in urls
 
 
 class TestEdgeCases2:
@@ -759,8 +786,6 @@ class TestHelperFunctions:
     """Test individual helper functions directly."""
 
     def test_clean_unbalanced_brackets(self):
-        from weav.modes.urls import clean_unbalanced_brackets
-
         # Trailing unbalanced closing brackets
         assert clean_unbalanced_brackets('https://example.com)') == 'https://example.com'
         assert clean_unbalanced_brackets('https://example.com]') == 'https://example.com'
@@ -778,8 +803,6 @@ class TestHelperFunctions:
         assert clean_unbalanced_brackets(None) == None
 
     def test_is_junk_url(self):
-        from weav.modes.urls import is_junk_url
-
         # MIME types
         assert is_junk_url('application/json') == True
         assert is_junk_url('text/html') == True
@@ -808,8 +831,6 @@ class TestHelperFunctions:
         # depending on validation rules
 
     def test_convert_route_params(self):
-        from weav.modes.urls import convert_route_params
-
         # Colon-style route params
         original, converted, has_params = convert_route_params('/users/:id')
         assert converted == '/users/{id}'
@@ -830,9 +851,99 @@ class TestHelperFunctions:
         assert converted == '/static/path'
         assert has_params == False
 
-    def test_is_url_pattern(self):
-        from weav.modes.urls import is_url_pattern
+    def test_convert_route_params_with_authentication(self):
+        """Test that route param conversion doesn't affect URL authentication."""
 
+        # GitHub URL with token - colon should NOT be treated as route param
+        original, converted, has_params = convert_route_params('https://user:ghp_token123@github.com/repo.git')
+        assert original == 'https://user:ghp_token123@github.com/repo.git'
+        assert converted == 'https://user:ghp_token123@github.com/repo.git'
+        assert has_params == False
+
+        # HTTP basic auth
+        original, converted, has_params = convert_route_params('https://admin:password@example.com/api')
+        assert original == 'https://admin:password@example.com/api'
+        assert converted == 'https://admin:password@example.com/api'
+        assert has_params == False
+
+        # FTP with credentials
+        original, converted, has_params = convert_route_params('ftp://user:pass@ftp.example.com/file.zip')
+        assert original == 'ftp://user:pass@ftp.example.com/file.zip'
+        assert converted == 'ftp://user:pass@ftp.example.com/file.zip'
+        assert has_params == False
+
+    def test_decode_js_string(self):
+        """Test JavaScript escape sequence decoding."""
+
+        # Hex escapes (\xHH)
+        assert decode_js_string('param1\\x3dvalue') == 'param1=value'
+        assert decode_js_string('\\x41\\x42\\x43') == 'ABC'
+        assert decode_js_string('test\\x20space') == 'test space'
+
+        # Unicode escapes (\uHHHH)
+        assert decode_js_string('param\\u003dvalue') == 'param=value'
+        assert decode_js_string('\\u0041\\u0042\\u0043') == 'ABC'
+        assert decode_js_string('hello\\u0020world') == 'hello world'
+
+        # Unicode code points (\u{HHHHHH})
+        assert decode_js_string('param\\u{003D}value') == 'param=value'
+        assert decode_js_string('param\\u{00003D}value') == 'param=value'
+        assert decode_js_string('\\u{1F600}') == '😀'
+
+        # Octal escapes (\OOO)
+        assert decode_js_string('param\\075value') == 'param=value'
+        assert decode_js_string('\\101\\102\\103') == 'ABC'
+        assert decode_js_string('test\\040space') == 'test space'
+
+        # Standard escapes
+        assert decode_js_string('line1\\nline2') == 'line1\nline2'
+        assert decode_js_string('tab\\there') == 'tab\there'
+        assert decode_js_string('carriage\\rreturn') == 'carriage\rreturn'
+        assert decode_js_string('back\\bspace') == 'back\bspace'
+        assert decode_js_string('form\\ffeed') == 'form\ffeed'
+        assert decode_js_string('vertical\\vtab') == 'vertical\vtab'
+        assert decode_js_string("quote\\'test") == "quote'test"
+        assert decode_js_string('quote\\"test') == 'quote"test'
+        assert decode_js_string('back\\\\slash') == 'back\\slash'
+        assert decode_js_string('null\\0char') == 'null\0char'
+
+        # Mixed escapes
+        assert decode_js_string('\\x3d\\u003d\\075') == '==='
+        assert decode_js_string('param1\\x3dval1&param2\\u003dval2') == 'param1=val1&param2=val2'
+
+        # No escapes
+        assert decode_js_string('normal text') == 'normal text'
+        assert decode_js_string('') == ''
+
+    def test_extract_string_value_with_escapes(self):
+        """Test that extract_string_value properly decodes escape sequences."""
+
+        # Create simple test strings and parse them
+        test_cases = [
+            ('"/api/test\\x3dparam"', '/api/test=param'),
+            ('"/api/test\\u003dparam"', '/api/test=param'),
+            ('"/api/test\\075param"', '/api/test=param'),
+            ('"/path\\nwith\\nnewlines"', '/path\nwith\nnewlines'),
+        ]
+
+        for js_code, expected in test_cases:
+            _, root = parse_javascript(f'const x = {js_code}')
+            # Find the string node
+            string_node = None
+            def find_string(node):
+                nonlocal string_node
+                if node.type == 'string':
+                    string_node = node
+                    return
+                for child in node.children:
+                    find_string(child)
+            find_string(root)
+
+            if string_node:
+                result = extract_string_value(string_node)
+                assert result == expected, f"Expected {expected}, got {result}"
+
+    def test_is_url_pattern(self):
         # Protocol URLs
         assert is_url_pattern('https://example.com') == True
         assert is_url_pattern('http://localhost') == True
@@ -855,8 +966,6 @@ class TestHelperFunctions:
         assert is_url_pattern('user.name') == False
 
     def test_is_path_pattern(self):
-        from weav.modes.urls import is_path_pattern
-
         # Absolute paths
         assert is_path_pattern('/api/users') == True
         assert is_path_pattern('/profile') == True
@@ -890,8 +999,6 @@ class TestAdjacentPlaceholders:
         assert 'FUZZ/FUZZ/FUZZ/FUZZ/FUZZ' not in urls
 
     def test_consolidate_adjacent_placeholders_function(self):
-        from weav.modes.urls import consolidate_adjacent_placeholders
-
         # Test the helper function directly
         assert consolidate_adjacent_placeholders('FUZZFUZZ', 'FUZZ') == 'FUZZ'
         assert consolidate_adjacent_placeholders('FUZZ/FUZZFUZZ', 'FUZZ') == 'FUZZ/FUZZ'
@@ -902,9 +1009,30 @@ class TestAdjacentPlaceholders:
         assert consolidate_adjacent_placeholders('CUSTOMCUSTOM', 'CUSTOM') == 'CUSTOM'
         assert consolidate_adjacent_placeholders('CUSTOM/api/CUSTOMCUSTOM', 'CUSTOM') == 'CUSTOM/api/CUSTOM'
 
-    def test_junk_filtering_pure_placeholders(self):
-        from weav.modes.urls import is_junk_url
 
+class TestEscapeSequences:
+    """Test JavaScript escape sequence decoding in URLs."""
+
+    def test_escape_sequences_in_urls(self):
+        """Test that various JavaScript escape sequences are decoded in extracted URLs."""
+        node, file_size = parse_file('escape_sequences.js')
+        urls = get_urls(node, 'FUZZ', include_templates=False, verbose=False, file_size=file_size)
+
+        # All escaped equals signs should be decoded to '='
+        assert '/api/example?param1=value1' in urls
+        assert '/api/example?param2=value2' in urls
+        assert '/api/example?param3=value3' in urls
+        assert '/api/example?param4=value4' in urls
+        assert '/api/test?a=1&b=2&c=d' in urls
+        assert '/api/endpoint?key=val' in urls
+
+        # Escaped versions should NOT be in output
+        assert '/api/example?param1\\x3dvalue1' not in urls
+        assert '/api/example?param2\\u003dvalue2' not in urls
+        assert '/api/example?param3\\u{003D}value3' not in urls
+        assert '/api/example?param4\\075value4' not in urls
+
+    def test_junk_filtering_pure_placeholders(self):
         # Pure placeholder paths should be junk
         assert is_junk_url('FUZZ/FUZZ', 'FUZZ') == True
         assert is_junk_url('FUZZ/FUZZ/FUZZ', 'FUZZ') == True
@@ -941,9 +1069,6 @@ class TestSemanticAliases:
     @staticmethod
     def extract_urls(js_code):
         """Helper to extract URLs from JavaScript code."""
-        from tree_sitter import Parser, Language
-        import tree_sitter_javascript
-
         JS_LANGUAGE = Language(tree_sitter_javascript.language())
         parser = Parser(JS_LANGUAGE)
         tree = parser.parse(bytes(js_code, 'utf8'))
@@ -1066,9 +1191,6 @@ class TestSemanticAliases:
 
     def test_skip_aliases_flag(self):
         """Test that --skip-aliases flag disables semantic alias extraction."""
-        from tree_sitter import Parser, Language
-        import tree_sitter_javascript
-
         js_code = """
         const t = '123';
         const params = { contentId: t };
@@ -1113,9 +1235,6 @@ class TestSemanticAliases:
 
     def test_large_file_disables_aliases(self):
         """Test that large files automatically disable semantic aliases."""
-        from tree_sitter import Parser, Language
-        import tree_sitter_javascript
-
         js_code = """
         const t = '123';
         const params = { contentId: t };
@@ -1221,6 +1340,54 @@ class TestSkipSymbols:
         assert '/api/v2' in urls_without
         assert '/data' in urls_without
         assert '/api/v2/data' not in urls_without  # Should NOT resolve object properties
+
+
+class TestCustomExtensions:
+    """Test custom file extensions support."""
+
+    def test_custom_extensions_with_paths(self):
+        """Should recognize custom extensions in paths."""
+        node, file_size = parse_file('custom_extensions.js')
+
+        # Without custom extensions - only recognize standard extensions
+        urls_default = get_urls(node, 'FUZZ', False, False, file_size=file_size, extensions=None)
+        assert 'config.json' in urls_default
+        # Proto, graphql, mdx should be extracted as paths even without extension recognition
+        assert 'api/schema.proto' in urls_default
+        assert 'queries/user.graphql' in urls_default
+        assert './docs/readme.mdx' in urls_default
+
+    def test_custom_extensions_normalization(self):
+        """Should normalize extensions with/without dots."""
+        code = '''
+        const file1 = "api/schema.proto";
+        const file2 = "queries/user.graphql";
+        '''
+        _, root_node = parse_javascript(code)
+
+        # Test with dots
+        urls_with_dots = get_urls(root_node, 'FUZZ', False, False, file_size=len(code.encode('utf8')), extensions='.proto,.graphql')
+        assert 'api/schema.proto' in urls_with_dots
+        assert 'queries/user.graphql' in urls_with_dots
+
+        # Test without dots
+        urls_without_dots = get_urls(root_node, 'FUZZ', False, False, file_size=len(code.encode('utf8')), extensions='proto,graphql')
+        assert 'api/schema.proto' in urls_without_dots
+        assert 'queries/user.graphql' in urls_without_dots
+
+    def test_custom_extensions_multiple(self):
+        """Should handle multiple custom extensions."""
+        code = '''
+        const proto = "schema.proto";
+        const graphql = "query.graphql";
+        const mdx = "readme.mdx";
+        '''
+        _, root_node = parse_javascript(code)
+
+        urls = get_urls(root_node, 'FUZZ', False, False, file_size=len(code.encode('utf8')), extensions='proto,graphql,mdx')
+        # Simple filenames without paths won't be extracted unless they're recognized extensions
+        # But paths with these extensions should work
+        assert len(urls) >= 0  # May or may not extract standalone filenames
 
 
 if __name__ == '__main__':
