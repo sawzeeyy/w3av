@@ -1,5 +1,5 @@
-from weav.core.jsparser import parse_javascript
-from weav.modes.tree import get_syntax_tree
+from w3av.core.jsparser import parse_javascript
+from w3av.modes.tree import get_syntax_tree
 
 
 def test_get_syntax_tree_basic():

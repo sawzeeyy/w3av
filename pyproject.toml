@@ -1,13 +1,13 @@
 [tool.poetry]
-name = "weav"
+name = "w3av"
 version = "1.0.0"
 description = "extract URLs, strings, and more from JavaScript code"
 authors = ["Shuaib Oladigbolu <shuaib@footstep.ninja>"]
 license = "MIT"
 readme = "README.md"
 include = [
-	"weav/config/nodetypes.txt",
-	"weav/config/mimetypes.txt"
+	"w3av/config/nodetypes.txt",
+	"w3av/config/mimetypes.txt"
 ]
 
 [tool.poetry.dependencies]
@@ -20,7 +20,7 @@ html5lib = "^1.1"
 html5-parser = "^0.4.12"
 
 [tool.poetry.scripts]
-weav = "weav.weav:main"
+w3av = "w3av.weav:main"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0.1"

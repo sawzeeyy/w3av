@@ -3,8 +3,8 @@ import pytest
 import tree_sitter_javascript
 
 from tree_sitter import Parser, Language
-from weav.core.jsparser import parse_javascript
-from weav.modes.urls import (
+from w3av.core.jsparser import parse_javascript
+from w3av.modes.urls import (
     get_urls,
     clean_unbalanced_brackets,
     is_junk_url,
@@ -17,7 +17,7 @@ from weav.modes.urls import (
 )
 
 """
-Tests for weav.modes.urls module - URL extraction from JavaScript files.
+Tests for w3av.modes.urls module - URL extraction from JavaScript files.
 
 Tests cover:
 - Simple string literals

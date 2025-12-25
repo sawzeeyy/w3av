@@ -1,6 +1,6 @@
 import pytest
 from io import StringIO
-from weav.core.output import write_output
+from w3av.core.output import write_output
 
 
 def test_write_output_to_stream():

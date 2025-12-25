@@ -3,10 +3,10 @@ import sys
 import importlib.resources
 
 from itertools import product
-from weav.core.jsparser import parse_javascript
-from weav.core.url_utils import is_url_pattern, is_path_pattern, is_filename_pattern
-from weav.core.html import extract_urls_from_html, extract_inline_scripts_from_html
-from weav.core.context import populate_symbol_tables, should_skip_pass1, should_use_file_value
+from w3av.core.jsparser import parse_javascript
+from w3av.core.url_utils import is_url_pattern, is_path_pattern, is_filename_pattern
+from w3av.core.html import extract_urls_from_html, extract_inline_scripts_from_html
+from w3av.core.context import populate_symbol_tables, should_skip_pass1, should_use_file_value
 
 # Global variable to store custom file extensions for the current extraction
 _custom_file_extensions = set()
@@ -22,12 +22,12 @@ def load_mime_types():
     mime_types = set()
 
     # Load IANA official MIME types
-    with importlib.resources.files('weav.config').joinpath('iana-mimetypes.txt')\
+    with importlib.resources.files('w3av.config').joinpath('iana-mimetypes.txt')\
             .open('r') as file:
         mime_types.update(line.strip() for line in file if line.strip())
 
     # Load additional non-standard MIME types
-    with importlib.resources.files('weav.config').joinpath('mimetypes.txt')\
+    with importlib.resources.files('w3av.config').joinpath('mimetypes.txt')\
             .open('r') as file:
         mime_types.update(line.strip() for line in file if line.strip())
 

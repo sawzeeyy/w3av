@@ -14,9 +14,9 @@ Display the Abstract Syntax Tree (AST) structure of JavaScript code.
 ## Basic Usage
 
 ```bash
-weav tree script.js
-weav tree --input script.js
-cat script.js | weav tree
+w3av tree script.js
+w3av tree --input script.js
+cat script.js | w3av tree
 ```
 
 ## Output
@@ -55,21 +55,21 @@ program
 Specify the input JavaScript file. This is an alternative to providing the file as a positional argument. Supports pipeline input from stdin if not specified.
 
 ```bash
-weav tree --input script.js
+w3av tree --input script.js
 ```
 
 ### `--indent N`
 Set indentation level (default: 2 spaces):
 
 ```bash
-weav tree script.js --indent 4
+w3av tree script.js --indent 4
 ```
 
 ### `--only-named`
 Show only named nodes (exclude punctuation and keywords):
 
 ```bash
-weav tree script.js --only-named
+w3av tree script.js --only-named
 ```
 
 **Without `--only-named`:**
@@ -97,7 +97,7 @@ program
 Display the actual text content of each node:
 
 ```bash
-weav tree script.js --include-text
+w3av tree script.js --include-text
 ```
 
 **Output:**
@@ -113,7 +113,7 @@ program
 Include comment nodes in the tree:
 
 ```bash
-weav tree script.js --parse-comments
+w3av tree script.js --parse-comments
 ```
 
 By default, comments are ignored during parsing.
@@ -122,34 +122,34 @@ By default, comments are ignored during parsing.
 Write tree to a file:
 
 ```bash
-weav tree script.js --output ast.txt
+w3av tree script.js --output ast.txt
 ```
 
 ## Examples
 
 ### Basic tree structure
 ```bash
-weav tree app.js
+w3av tree app.js
 ```
 
 ### Clean tree without syntax noise
 ```bash
-weav tree app.js --only-named
+w3av tree app.js --only-named
 ```
 
 ### Tree with source text
 ```bash
-weav tree app.js --include-text
+w3av tree app.js --include-text
 ```
 
 ### Detailed tree with comments
 ```bash
-weav tree app.js --parse-comments --indent 4
+w3av tree app.js --parse-comments --indent 4
 ```
 
 ### Save tree for analysis
 ```bash
-weav tree bundle.js --only-named --output bundle-ast.txt
+w3av tree bundle.js --only-named --output bundle-ast.txt
 ```
 
 ## Use Cases
@@ -206,5 +206,5 @@ Tree mode is fast and can handle large files efficiently. The output size grows 
 
 1. Use `--only-named` for cleaner output when learning
 2. Add `--include-text` to correlate tree structure with source
-3. Pipe to `less` or `more` for large trees: `weav tree bundle.js | less`
-4. Use with grep to find specific node types: `weav tree app.js | grep "function_declaration"`
+3. Pipe to `less` or `more` for large trees: `w3av tree bundle.js | less`
+4. Use with grep to find specific node types: `w3av tree app.js | grep "function_declaration"`

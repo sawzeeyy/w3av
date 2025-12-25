@@ -1,6 +1,6 @@
 import pytest
 
-from weav.core.html import (
+from w3av.core.html import (
     extract_urls_from_html,
     extract_inline_scripts_from_html,
     is_url_pattern,

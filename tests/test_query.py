@@ -1,6 +1,6 @@
 import pytest
-from weav.core.jsparser import parse_javascript
-from weav.modes.query import query_nodes
+from w3av.core.jsparser import parse_javascript
+from w3av.modes.query import query_nodes
 
 
 def test_query_strings():

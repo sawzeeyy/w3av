@@ -1,5 +1,5 @@
-from weav.core.jsparser import parse_javascript
-from weav.core.comment import remove_comment_delimiter
+from w3av.core.jsparser import parse_javascript
+from w3av.core.comment import remove_comment_delimiter
 
 
 def traverse_node(node, min, max, include_error):

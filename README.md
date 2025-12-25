@@ -1,4 +1,4 @@
-# weav
+# w3av
 Extract URLs, strings, and more from JavaScript code using tree-sitter.
 
 ## Features
@@ -9,10 +9,10 @@ Extract URLs, strings, and more from JavaScript code using tree-sitter.
 - **Query Mode** - Custom tree-sitter queries for pattern matching
 
 ## Installation
-**weav** requires at least Python 3.11
+**w3av** requires at least Python 3.11
 
 ```bash
-pip install weav
+pip install w3av
 ```
 
 ## Usage
@@ -20,23 +20,23 @@ Read more in the [documentation](docs/)
 
 ### Extract URLs and API endpoints
 ```bash
-weav urls app.js --include-templates
-weav urls bundle.js --context '{"API_URL":"https://api.example.com"}'
+w3av urls app.js --include-templates
+w3av urls bundle.js --context '{"API_URL":"https://api.example.com"}'
 ```
 
 ### Find potential secrets
 ```bash
-weav strings app.js --min 20 | grep -i "key\|token\|secret"
+w3av strings app.js --min 20 | grep -i "key\|token\|secret"
 ```
 
 ### Visualize code structure
 ```bash
-weav tree app.js --only-named
+w3av tree app.js --only-named
 ```
 
 ### Custom pattern matching
 ```bash
-weav query app.js --query '(function_declaration name: (identifier) @name)'
+w3av query app.js --query '(function_declaration name: (identifier) @name)'
 ```
 
 ## Related Tools

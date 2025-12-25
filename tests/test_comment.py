@@ -1,4 +1,4 @@
-from weav.core.comment import remove_comment_delimiter
+from w3av.core.comment import remove_comment_delimiter
 
 
 def test_line_comment_with_domain():

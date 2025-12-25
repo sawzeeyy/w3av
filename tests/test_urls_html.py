@@ -1,8 +1,8 @@
 import pytest
 
 from pathlib import Path
-from weav.core.jsparser import parse_javascript
-from weav.modes.urls import get_urls
+from w3av.core.jsparser import parse_javascript
+from w3av.modes.urls import get_urls
 
 """
 Tests for HTML URL extraction integration in urls.py

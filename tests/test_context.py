@@ -3,7 +3,7 @@ import tempfile
 import os
 import json
 
-from weav.core.context import (
+from w3av.core.context import (
     parse_context_input,
     populate_symbol_tables,
     should_skip_pass1,

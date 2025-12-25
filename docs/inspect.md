@@ -12,9 +12,9 @@ Discover available node types in JavaScript code or get statistics about node ty
 ## Basic Usage
 
 ```bash
-weav inspect script.js
-weav inspect --input script.js
-cat script.js | weav inspect
+w3av inspect script.js
+w3av inspect --input script.js
+cat script.js | w3av inspect
 ```
 
 ## Output
@@ -42,14 +42,14 @@ string
 Specify the input JavaScript file. This is an alternative to providing the file as a positional argument. Supports pipeline input from stdin if not specified.
 
 ```bash
-weav inspect --input script.js
+w3av inspect --input script.js
 ```
 
 ### `--get-types`
 Display all possible node types supported by tree-sitter-javascript:
 
 ```bash
-weav inspect --get-types
+w3av inspect --get-types
 ```
 
 **Note:** This option doesn't require input JavaScript. It shows the complete list of node types that the parser can recognize.
@@ -71,7 +71,7 @@ as_expression
 Filter output to show only specific node types:
 
 ```bash
-weav inspect script.js --types string number identifier
+w3av inspect script.js --types string number identifier
 ```
 
 **Output:**
@@ -87,34 +87,34 @@ Only lists the specified types if they exist in the code.
 Write results to a file:
 
 ```bash
-weav inspect script.js --output node-types.txt
+w3av inspect script.js --output node-types.txt
 ```
 
 ## Examples
 
 ### List all node types in a file
 ```bash
-weav inspect app.js
+w3av inspect app.js
 ```
 
 ### Get complete node type reference
 ```bash
-weav inspect --get-types
+w3av inspect --get-types
 ```
 
 ### Check if file contains specific constructs
 ```bash
-weav inspect app.js --types class_declaration arrow_function
+w3av inspect app.js --types class_declaration arrow_function
 ```
 
 ### Find all available types matching a pattern
 ```bash
-weav inspect --get-types | grep "declaration"
+w3av inspect --get-types | grep "declaration"
 ```
 
 ### Save node type inventory
 ```bash
-weav inspect bundle.js --output node-inventory.txt
+w3av inspect bundle.js --output node-inventory.txt
 ```
 
 ## Use Cases
@@ -131,12 +131,12 @@ Use inspect to discover node types, then query to extract them:
 
 ```bash
 # Step 1: Find what's in the file
-weav inspect app.js
+w3av inspect app.js
 # Output shows: arrow_function, class_declaration
 
 # Step 2: Query for those types
-weav query app.js --query '(arrow_function) @arrow'
-weav query app.js --query '(class_declaration) @class'
+w3av query app.js --query '(arrow_function) @arrow'
+w3av query app.js --query '(class_declaration) @class'
 ```
 
 ## Node Type Categories
