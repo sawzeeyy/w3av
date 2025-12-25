@@ -1,0 +1,39 @@
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Python virtual environments
+venv/
+env/
+
+# Test cache
+.pytest_cache/
+.coverage
+
+# Node.js artifacts
+node_modules/
+
+# Build artifacts
+dist/
+
+# MacOS files
+.DS_Store
+
+# Editor/backup files
+*~
+*.swp
+*.bak
+
+# Output and generated files
+explore/
+test_*.js
+
+# Ignore compiled JS
+*.min.js
+
+# Ignore test results
+tests/__pycache__/
+
+# VS Code settings
+.vscode/

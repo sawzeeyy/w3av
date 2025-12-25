@@ -1,0 +1,13 @@
+application/graphql+json
+application/java-archive
+application/x-7z-compressed
+application/x-bzip
+application/x-bzip2
+application/x-shockwave-flash
+application/x-tar
+audio/midi
+audio/wav
+audio/webm
+video/webm
+video/x-matroska
+video/x-msvideo
