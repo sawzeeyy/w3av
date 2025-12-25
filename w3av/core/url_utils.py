@@ -25,7 +25,7 @@ def load_file_extensions():
         return _file_extensions
 
     extensions = set()
-    with importlib.resources.files('weav.config').joinpath('file-extensions.txt').open('r') as file:
+    with importlib.resources.files('w3av.config').joinpath('file-extensions.txt').open('r') as file:
         for line in file:
             ext = line.strip()
             if ext:
@@ -174,7 +174,7 @@ def is_path_pattern(text):
     # Try to get custom extensions from urls module (if available)
     custom_exts = None
     try:
-        from weav.modes.urls import get_custom_extensions
+        from w3av.modes.urls import get_custom_extensions
         custom_exts = get_custom_extensions()
     except (ImportError, AttributeError):
         pass

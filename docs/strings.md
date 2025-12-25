@@ -13,9 +13,9 @@ Extract string literals and template strings from JavaScript code.
 ## Basic Usage
 
 ```bash
-weav strings script.js
-weav strings --input script.js
-cat script.js | weav strings
+w3av strings script.js
+w3av strings --input script.js
+cat script.js | w3av strings
 ```
 
 ## Output
@@ -45,14 +45,14 @@ User:
 Specify the input JavaScript file. This is an alternative to providing the file as a positional argument. Supports pipeline input from stdin if not specified.
 
 ```bash
-weav strings --input script.js
+w3av strings --input script.js
 ```
 
 ### `--min N`
 Set minimum string length (default: 1):
 
 ```bash
-weav strings script.js --min 10
+w3av strings script.js --min 10
 ```
 
 Only extracts strings with 10 or more characters.
@@ -61,7 +61,7 @@ Only extracts strings with 10 or more characters.
 Set maximum string length (default: no limit):
 
 ```bash
-weav strings script.js --max 100
+w3av strings script.js --max 100
 ```
 
 Only extracts strings up to 100 characters. Useful for filtering out large data blobs.
@@ -70,7 +70,7 @@ Only extracts strings up to 100 characters. Useful for filtering out large data 
 Include strings from syntax error nodes:
 
 ```bash
-weav strings broken.js --include-error
+w3av strings broken.js --include-error
 ```
 
 Useful when parsing partially valid or malformed JavaScript.
@@ -79,29 +79,29 @@ Useful when parsing partially valid or malformed JavaScript.
 Write results to a file:
 
 ```bash
-weav strings script.js --output strings.txt
+w3av strings script.js --output strings.txt
 ```
 
 ## Examples
 
 ### Extract all strings
 ```bash
-weav strings app.js
+w3av strings app.js
 ```
 
 ### Extract strings between 5-50 characters
 ```bash
-weav strings app.js --min 5 --max 50
+w3av strings app.js --min 5 --max 50
 ```
 
 ### Find potential secrets
 ```bash
-weav strings app.js --min 20 | grep -i "key\|token\|secret"
+w3av strings app.js --min 20 | grep -i "key\|token\|secret"
 ```
 
 ### Extract from broken code
 ```bash
-weav strings partial.js --include-error
+w3av strings partial.js --include-error
 ```
 
 ## Use Cases

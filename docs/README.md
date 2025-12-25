@@ -1,6 +1,6 @@
-# weav Documentation
+# w3av Documentation
 
-Comprehensive documentation for **weav** - extract URLs, strings, and more from JavaScript code.
+Comprehensive documentation for **w3av** - extract URLs, strings, and more from JavaScript code.
 
 | Mode | Purpose | Common Options |
 |------|---------|---------------|
@@ -12,7 +12,7 @@ Comprehensive documentation for **weav** - extract URLs, strings, and more from 
 
 ## Modes
 
-weav provides five modes for different JavaScript analysis tasks:
+w3av provides five modes for different JavaScript analysis tasks:
 
 ### [URLs Mode](urls.md)
 Extract URLs, API endpoints, and paths from JavaScript with intelligent variable resolution.
@@ -25,8 +25,8 @@ Extract URLs, API endpoints, and paths from JavaScript with intelligent variable
 
 **Quick start:**
 ```bash
-weav urls app.js --include-templates
-weav urls bundle.js --context '{"API_URL":"https://api.example.com"}'
+w3av urls app.js --include-templates
+w3av urls bundle.js --context '{"API_URL":"https://api.example.com"}'
 ```
 
 [Read full documentation →](urls.md)
@@ -44,8 +44,8 @@ Extract all string literals and template strings from JavaScript code.
 
 **Quick start:**
 ```bash
-weav strings app.js --min 10
-weav strings app.js | grep -i "key\|token\|secret"
+w3av strings app.js --min 10
+w3av strings app.js | grep -i "key\|token\|secret"
 ```
 
 [Read full documentation →](strings.md)
@@ -63,8 +63,8 @@ Display the Abstract Syntax Tree (AST) structure of JavaScript code.
 
 **Quick start:**
 ```bash
-weav tree app.js --only-named
-weav tree app.js --include-text
+w3av tree app.js --only-named
+w3av tree app.js --include-text
 ```
 
 [Read full documentation →](tree.md)
@@ -82,8 +82,8 @@ Discover available node types or get statistics about AST node usage.
 
 **Quick start:**
 ```bash
-weav inspect app.js
-weav inspect --get-types
+w3av inspect app.js
+w3av inspect --get-types
 ```
 
 [Read full documentation →](inspect.md)
@@ -101,8 +101,8 @@ Execute tree-sitter queries to extract specific code patterns.
 
 **Quick start:**
 ```bash
-weav query app.js --query '(string) @str'
-weav query app.js --query '(function_declaration name: (identifier) @name)'
+w3av query app.js --query '(string) @str'
+w3av query app.js --query '(function_declaration name: (identifier) @name)'
 ```
 
 [Read full documentation →](query.md)
@@ -112,7 +112,7 @@ weav query app.js --query '(function_declaration name: (identifier) @name)'
 ## Installation
 
 ```bash
-pip install weav
+pip install w3av
 ```
 
 **Requirements:**
@@ -126,46 +126,46 @@ pip install weav
 ### Security Testing
 ```bash
 # Find all URLs and endpoints
-weav urls app.js --include-templates > urls.txt
+w3av urls app.js --include-templates > urls.txt
 
 # Find potential secrets
-weav strings app.js --min 20 | grep -i "key\|token\|password"
+w3av strings app.js --min 20 | grep -i "key\|token\|password"
 
 # Find dangerous functions
-weav query app.js --query '(call_expression function: (identifier) @func)' | grep -E "eval|exec"
+w3av query app.js --query '(call_expression function: (identifier) @func)' | grep -E "eval|exec"
 ```
 
 ### API Discovery
 ```bash
 # Extract all URLs with context
-weav urls app.js --context config.json --include-templates
+w3av urls app.js --context config.json --include-templates
 
 # Find all HTTP methods
-weav query app.js --query '(member_expression property: (property_identifier) @method)' | grep -E "get|post|put|delete"
+w3av query app.js --query '(member_expression property: (property_identifier) @method)' | grep -E "get|post|put|delete"
 ```
 
 ### Code Analysis
 ```bash
 # Visualize structure
-weav tree app.js --only-named > structure.txt
+w3av tree app.js --only-named > structure.txt
 
 # Find all function names
-weav query app.js --query '(function_declaration name: (identifier) @name)' --unique
+w3av query app.js --query '(function_declaration name: (identifier) @name)' --unique
 
 # List all constructs
-weav inspect app.js
+w3av inspect app.js
 ```
 
 ### Debugging
 ```bash
 # See full AST with text
-weav tree broken.js --include-text --parse-comments
+w3av tree broken.js --include-text --parse-comments
 
 # Extract strings even from broken code
-weav strings broken.js --include-error
+w3av strings broken.js --include-error
 
 # Check what node types exist
-weav inspect broken.js
+w3av inspect broken.js
 ```
 
 ## Tips & Best Practices
