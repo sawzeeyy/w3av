@@ -7,7 +7,9 @@ license = "MIT"
 readme = "README.md"
 include = [
 	"w3av/config/nodetypes.txt",
-	"w3av/config/mimetypes.txt"
+	"w3av/config/mimetypes.txt",
+	"w3av/config/iana-mimetypes.txt",
+	"w3av/config/file-extensions.txt"
 ]
 
 [tool.poetry.dependencies]
@@ -20,7 +22,7 @@ html5lib = "^1.1"
 html5-parser = "^0.4.12"
 
 [tool.poetry.scripts]
-w3av = "w3av.weav:main"
+w3av = "w3av.w3av:main"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0.1"
