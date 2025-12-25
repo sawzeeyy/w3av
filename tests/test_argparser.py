@@ -192,3 +192,44 @@ def test_argparser_context_policy_invalid(monkeypatch):
 
     with pytest.raises(SystemExit):
         parse_arguments()
+
+
+def test_argparser_unicode_decode_error_stdin(monkeypatch, capsys):
+    """Test that invalid UTF-8 in stdin is handled gracefully"""
+    # Mock stdin to return bytes that are invalid UTF-8
+    class MockStdin:
+        def read(self):
+            raise UnicodeDecodeError('utf-8', b'\x80', 0, 1, 'invalid start byte')
+        def isatty(self):
+            return False
+
+    monkeypatch.setattr(sys, 'argv', ['w3av', 'urls'])
+    monkeypatch.setattr(sys, 'stdin', MockStdin())
+    
+    # Needs to raise SystemExit because parser.error exits
+    with pytest.raises(SystemExit) as exc:
+        parse_arguments()
+    
+    assert exc.value.code != 0
+    
+    # Check stderr for the error message
+    captured = capsys.readouterr()
+    assert "Input is not valid UTF-8" in captured.err
+
+
+def test_argparser_unicode_decode_error_file(monkeypatch, tmp_path, capsys):
+    """Test that invalid UTF-8 in file input is handled gracefully"""
+    # Create a binary file with invalid UTF-8
+    bad_file = tmp_path / "bad.js"
+    bad_file.write_bytes(b"\x80\x81\xFF")
+    
+    monkeypatch.setattr(sys, 'argv', ['w3av', 'urls', '--input', str(bad_file)])
+    
+    # Verify SystemExit
+    with pytest.raises(SystemExit) as exc:
+        parse_arguments()
+        
+    assert exc.value.code != 0
+    
+    captured = capsys.readouterr()
+    assert "Input is not valid UTF-8" in captured.err

@@ -288,12 +288,15 @@ def parse_arguments():
         # Validate input parameter - check both positional and --input
         input_file = args.input if args.input else args.input_file
 
-        if input_file:
-            args.javascript = input_file.read()
-        elif not sys.stdin.isatty():
-            args.javascript = sys.stdin.read()
-        else:
-            parser.error('No input was provided and there was none from stdin')
+        try:
+            if input_file:
+                args.javascript = input_file.read()
+            elif not sys.stdin.isatty():
+                args.javascript = sys.stdin.read()
+            else:
+                parser.error('No input was provided and there was none from stdin')
+        except UnicodeDecodeError:
+            parser.error('Input is not valid UTF-8')
 
         # Exit if input is empty
         if len(args.javascript.strip()) <= 0:
