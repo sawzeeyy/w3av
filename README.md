@@ -1,5 +1,5 @@
 # weav
-Extract URLs, strings, and more from JavaScript code using tree-sitter parsing.
+Extract URLs, strings, and more from JavaScript code using tree-sitter.
 
 ## Features
 - **URLs Mode** - Extract API endpoints, URLs, and paths with intelligent variable resolution
