@@ -15,7 +15,7 @@ _file_extensions = None
 
 def load_file_extensions():
     """
-    Loads valid file extensions from config/file-extensions.txt.
+    Loads valid file extensions from config/file_extensions.txt.
     Returns a set of extensions (without dots).
     Cached after first load.
     """
@@ -25,7 +25,7 @@ def load_file_extensions():
         return _file_extensions
 
     extensions = set()
-    with importlib.resources.files('w3av.config').joinpath('file-extensions.txt').open('r') as file:
+    with importlib.resources.files('w3av.config').joinpath('file_extensions.txt').open('r') as file:
         for line in file:
             ext = line.strip()
             if ext:

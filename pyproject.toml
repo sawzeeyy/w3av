@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "w3av"
-version = "1.0.2"
+version = "1.0.3"
 description = "extract URLs, strings, and more from JavaScript code"
 authors = ["Shuaib Oladigbolu <shuaib@footstep.ninja>"]
 license = "MIT"
@@ -8,8 +8,8 @@ readme = "README.md"
 include = [
 	"w3av/config/nodetypes.txt",
 	"w3av/config/mimetypes.txt",
-	"w3av/config/iana-mimetypes.txt",
-	"w3av/config/file-extensions.txt"
+	"w3av/config/iana_mimetypes.txt",
+	"w3av/config/file_extensions.txt"
 ]
 
 [tool.poetry.dependencies]

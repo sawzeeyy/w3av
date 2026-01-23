@@ -44,13 +44,13 @@ def load_mime_types():
         Set of MIME type strings (~2007 types)
 
     Config Files:
-        - w3av/config/iana-mimetypes.txt (1994 official IANA MIME types)
+        - w3av/config/iana_mimetypes.txt (1994 official IANA MIME types)
         - w3av/config/mimetypes.txt (13 additional non-standard MIME types)
     """
     mime_types = set()
 
     # Load IANA official MIME types
-    with importlib.resources.files('w3av.config').joinpath('iana-mimetypes.txt')\
+    with importlib.resources.files('w3av.config').joinpath('iana_mimetypes.txt')\
             .open('r') as file:
         mime_types.update(line.strip() for line in file if line.strip())
 
