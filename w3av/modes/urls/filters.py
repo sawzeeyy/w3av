@@ -120,10 +120,10 @@ def is_junk_url(text, placeholder='FUZZ', mime_types=None):
     if re.match(r'^/+(hh|HH|h|H|\{hh\}|\{HH\}|\{h\}|\{H\}):(mm|MM|m|M|\{mm\}|\{MM\}|\{m\}|\{M\})(:(ss|SS|s|S|\{ss\}|\{SS\}|\{s\}|\{S\}))?/?$', text, re.IGNORECASE):
         return True
 
-    # IANA timezone identifiers (Continent/City format)
-    # Examples: Europe/Bucharest, America/New_York, Asia/Tokyo
-    # These are not valid URLs and should be filtered
-    if re.match(r'^(Africa|America|Antarctica|Arctic|Asia|Atlantic|Australia|Europe|Indian|Pacific)/[A-Z][a-zA-Z_-]+$', text):
+    # IANA timezone identifiers and timezone data strings (from libraries like moment-timezone)
+    # Matches both clean identifiers (Europe/London) and data entries (Africa/Abidjan|LMT GMT|...)
+    # Also covers nested timezones (America/Argentina/Buenos_Aires) and legacy aliases (US/Eastern)
+    if re.match(r'^(Africa|America|Antarctica|Arctic|Asia|Atlantic|Australia|Europe|Indian|Pacific|Etc|US|Canada|Mexico|Brazil|Chile)/[A-Za-z0-9_+-]+(/[A-Za-z0-9_+-]+)?(\|.+)?$', text):
         return True
 
     return False
