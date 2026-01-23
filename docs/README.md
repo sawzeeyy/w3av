@@ -121,6 +121,32 @@ pip install w3av
 - tree-sitter-javascript
 - beautifulsoup4 (for HTML parsing)
 
+## Shell Completion
+
+w3av supports tab autocompletion for Bash, Zsh, and Fish shells.
+
+### Bash
+```bash
+eval "$(register-python-argcomplete w3av)"
+```
+Add the above line to your `~/.bashrc` to enable permanently.
+
+### Zsh
+```bash
+autoload -U bashcompinit && bashcompinit
+eval "$(register-python-argcomplete w3av)"
+```
+Add the above lines to your `~/.zshrc` to enable permanently.
+
+### Fish
+```bash
+register-python-argcomplete --shell fish w3av | source
+```
+To enable permanently, run:
+```bash
+register-python-argcomplete --shell fish w3av > ~/.config/fish/completions/w3av.fish
+```
+
 ## Common Workflows
 
 ### Security Testing

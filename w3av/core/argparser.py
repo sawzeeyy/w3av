@@ -2,6 +2,7 @@ import argparse
 import sys
 import textwrap
 
+import argcomplete
 from importlib.metadata import version as pkg_version
 from w3av.core.context import parse_context_input, validate_policy
 
@@ -272,6 +273,9 @@ def parse_arguments():
         action='store_true',
         help='Decode node texts and removed leading or trailing characters'
     )
+
+    # Enable shell autocompletion
+    argcomplete.autocomplete(parser)
 
     # Parse arguments
     args = parser.parse_args()
