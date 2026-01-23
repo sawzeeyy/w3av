@@ -8,7 +8,7 @@ import re
 from w3av.core.jsparser import parse_javascript
 from w3av.core.url_utils import is_url_pattern, is_path_pattern
 
-from .filters import clean_unbalanced_brackets, is_junk_url
+from .filters import clean_unbalanced_brackets, clean_trailing_sentence_punctuation, is_junk_url
 from .processors import (
     process_string_literal,
     process_template_string,
@@ -49,6 +49,7 @@ def add_url_entry(entry, url_entries, seen_urls, verbose=False, placeholder='FUZ
             if verbose:
                 # Clean and filter before printing
                 url_to_print = clean_unbalanced_brackets(e.get('placeholder', e.get('original', '')))
+                url_to_print = clean_trailing_sentence_punctuation(url_to_print)
                 if not is_junk_url(url_to_print, placeholder, mime_types):
                     print(f"{url_to_print}")
 

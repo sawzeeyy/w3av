@@ -5,7 +5,14 @@ Handles final URL formatting, route parameter conversion, and HTML detection.
 """
 import re
 
-from .filters import clean_unbalanced_brackets, is_junk_url
+from .filters import clean_unbalanced_brackets, clean_trailing_sentence_punctuation, is_junk_url
+
+
+def clean_url(text):
+    """Apply all URL cleaning functions."""
+    text = clean_unbalanced_brackets(text)
+    text = clean_trailing_sentence_punctuation(text)
+    return text
 
 
 def convert_route_params(text, placeholder='FUZZ'):
@@ -114,8 +121,8 @@ def format_output(url_entries, include_templates, placeholder, mime_types=None):
 
         if include_templates:
             # Include ALL URLs: static URLs, original template syntax, AND placeholder versions
-            original = clean_unbalanced_brackets(entry.get('original', ''))
-            placeholder_val = clean_unbalanced_brackets(entry.get('placeholder', ''))
+            original = clean_url(entry.get('original', ''))
+            placeholder_val = clean_url(entry.get('placeholder', ''))
 
             if entry.get('has_template', False):
                 # Has template - add BOTH original ({x} syntax) AND placeholder (FUZZ) version
@@ -131,12 +138,12 @@ def format_output(url_entries, include_templates, placeholder, mime_types=None):
             # Only include static URLs or resolved placeholder versions (no {x} syntax)
             if not entry.get('has_template', False):
                 # Static URL - use as-is
-                output = clean_unbalanced_brackets(entry.get('resolved', entry.get('original', '')))
+                output = clean_url(entry.get('resolved', entry.get('original', '')))
                 if output and not is_junk_url(output, placeholder, mime_types) and output not in results:
                     results.append(output)
             else:
                 # Has template - use placeholder version (with FUZZ), NOT original (with {})
-                placeholder_val = clean_unbalanced_brackets(entry.get('placeholder', ''))
+                placeholder_val = clean_url(entry.get('placeholder', ''))
 
                 # Only include if we successfully replaced template markers
                 if placeholder_val and '{' not in placeholder_val and not is_junk_url(placeholder_val, placeholder, mime_types) and placeholder_val not in results:

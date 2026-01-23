@@ -25,6 +25,72 @@ from .output import convert_route_params
 from .filters import consolidate_adjacent_placeholders
 
 
+def extract_urls_from_prose(text, placeholder='FUZZ'):
+    """
+    Detects if text is prose/error message and extracts embedded URLs.
+
+    Returns:
+        - List of extracted URL dicts if prose with embedded URLs
+        - None if not prose (let normal processing continue)
+        - Empty list if prose with no embedded URLs (discard entirely)
+    """
+    # Skip HTML content - let the HTML parser handle it
+    if '<' in text and '>' in text:
+        return None
+
+    # Prose indicators - common phrases in error/warning messages
+    prose_indicators = [
+        'has been deprecated',
+        'must be one of',
+        'called on incompatible',
+        'please change',
+        'this means',
+        'will never render',
+        'in favor of',
+        'for the full message',
+        'minified',
+        'invariant',
+        'warning:',
+        'error:',
+    ]
+
+    text_lower = text.lower()
+    is_prose = any(indicator in text_lower for indicator in prose_indicators)
+
+    # Also detect by space count (prose has many spaces)
+    if not is_prose and text.count(' ') >= 4:
+        # But only if it doesn't start with URL indicators
+        if not text.startswith(('http://', 'https://', '/', './', '../')):
+            is_prose = True
+
+    # React/JSX warning patterns (but not actual JSX/HTML content)
+    if 'useRoutes()' in text:
+        is_prose = True
+
+    if not is_prose:
+        return None  # Not prose, let normal processing continue
+
+    # Extract embedded full URLs (http/https) from the prose
+    # Note: We intentionally do NOT extract paths from prose, as they are usually:
+    # - Fragments of URLs we already extracted (e.g., /warnings/zone/ from http://example.com/#/warnings/zone/)
+    # - False positives like /ISO from "RFC2822/ISO"
+    results = []
+
+    url_pattern = r'https?://[^\s<>"\'{}|\\^`\[\])]+'
+    for match in re.findall(url_pattern, text):
+        # Clean trailing punctuation
+        match = match.rstrip('.,;:')
+        if len(match) > 10:  # Skip very short URLs
+            results.append({
+                'original': match,
+                'placeholder': match,
+                'resolved': match,
+                'has_template': placeholder in match
+            })
+
+    return results  # Empty list means prose with no URLs (discard)
+
+
 def process_html_content(text, placeholder, html_parser_backend='lxml', traverse_func=None):
     """
     Helper function to extract URLs from HTML content and inline scripts.
@@ -85,6 +151,12 @@ def process_string_literal(node, placeholder, symbol_table=None, object_table=No
     text = extract_string_value(node)
     if not text:
         return None
+
+    # Check for prose/error messages first - extract embedded URLs if any
+    prose_urls = extract_urls_from_prose(text, placeholder)
+    if prose_urls is not None:
+        # It's prose - return extracted URLs (or None if empty)
+        return prose_urls if prose_urls else None
 
     # Check if string contains HTML content
     html_results = process_html_content(text, placeholder, html_parser_backend, traverse_func)
@@ -275,6 +347,13 @@ def process_template_string(node, placeholder, symbol_table=None, object_table=N
     results = []
     for combo in all_combinations:
         resolved = ''.join(combo)
+
+        # Check for prose/error messages first - extract embedded URLs if any
+        prose_urls = extract_urls_from_prose(resolved, placeholder)
+        if prose_urls is not None:
+            # It's prose - add extracted URLs (if any)
+            results.extend(prose_urls)
+            continue
 
         # Check if this combination is a URL/path pattern
         if (is_url_pattern(original) or is_path_pattern(original) or

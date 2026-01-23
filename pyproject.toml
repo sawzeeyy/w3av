@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "w3av"
-version = "1.0.3"
+version = "1.0.4"
 description = "extract URLs, strings, and more from JavaScript code"
 authors = ["Shuaib Oladigbolu <shuaib@footstep.ninja>"]
 license = "MIT"

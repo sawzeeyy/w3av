@@ -32,6 +32,7 @@ from w3av.core.url_utils import is_url_pattern, is_path_pattern
 from .filters import (
     is_junk_url,
     clean_unbalanced_brackets,
+    clean_trailing_sentence_punctuation,
     consolidate_adjacent_placeholders,
 )
 
@@ -107,6 +108,7 @@ __all__ = [
     # Filtering
     'is_junk_url',
     'clean_unbalanced_brackets',
+    'clean_trailing_sentence_punctuation',
     'consolidate_adjacent_placeholders',
 
     # Output

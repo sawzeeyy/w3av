@@ -113,6 +113,17 @@ def is_url_pattern(text):
     if not text or not isinstance(text, str):
         return False
 
+    # Early rejection: prose strings (multiple spaces indicate sentences, not URLs)
+    if text.count(' ') >= 3:
+        return False
+
+    # Early rejection: natural language indicators
+    prose_indicators = ['has been', 'must be', 'called on', 'this means', 'please change',
+                        'will never', 'in favor of', 'for the full', 'deprecated']
+    text_lower = text.lower()
+    if any(phrase in text_lower for phrase in prose_indicators):
+        return False
+
     # Protocol URLs
     if re.match(r'^[a-zA-Z][a-zA-Z0-9+.-]*://', text):
         return True
@@ -162,8 +173,20 @@ def is_path_pattern(text):
     - Single word with trailing slash: mrFlatpickr/
     - Protocol-relative URLs: //cdn.example.com (handled by is_url_pattern)
     - Very short paths: /e (too generic)
+    - Prose strings with multiple spaces
     """
     if not text or not isinstance(text, str):
+        return False
+
+    # Early rejection: prose strings (multiple spaces indicate sentences, not URLs)
+    if text.count(' ') >= 3:
+        return False
+
+    # Early rejection: natural language indicators
+    prose_indicators = ['has been', 'must be', 'called on', 'this means', 'please change',
+                        'will never', 'in favor of', 'for the full', 'deprecated']
+    text_lower = text.lower()
+    if any(phrase in text_lower for phrase in prose_indicators):
         return False
 
     # Reject protocol-relative URLs
