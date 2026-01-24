@@ -304,8 +304,11 @@ def build_symbol_table(node, placeholder, symbol_table, object_table, array_tabl
                        alias_table=None, context=None, context_policy='merge',
                        node_visit_count=None, max_nodes_limit=1000000):
     """
-    First pass - recursively traverses AST to collect variable assignments
-    and build object structures.
+    First pass - iteratively traverses AST to collect variable assignments
+    and build object structures using explicit stack.
+
+    This iterative approach eliminates recursion overhead and avoids stack overflow
+    on very deep ASTs.
 
     Parameters:
     - node: AST node to traverse
@@ -327,35 +330,37 @@ def build_symbol_table(node, placeholder, symbol_table, object_table, array_tabl
     if node_visit_count is None:
         node_visit_count = [0]
 
-    node_visit_count[0] += 1
+    # Use explicit stack for iterative traversal
+    stack = [node]
 
-    if node_visit_count[0] > max_nodes_limit:
-        sys.stderr.write(f'\nWarning: Stopped after visiting {max_nodes_limit:,} nodes. File may be too large or complex.\n')
-        return node_visit_count[0]
+    while stack:
+        if node_visit_count[0] > max_nodes_limit:
+            sys.stderr.write(f'\nWarning: Stopped after visiting {max_nodes_limit:,} nodes. File may be too large or complex.\n')
+            break
 
-    if node.type == 'lexical_declaration' or node.type == 'variable_declaration':
-        for child in node.named_children:
-            if child.type == 'variable_declarator':
-                collect_variable_assignment(
-                    child, placeholder, symbol_table, object_table, array_table,
-                    alias_table, context, context_policy
-                )
-    elif node.type == 'assignment_expression':
-        left_node = node.child_by_field_name('left')
-        if left_node:
-            if left_node.type == 'identifier':
-                collect_variable_assignment(
-                    node, placeholder, symbol_table, object_table, array_table,
-                    alias_table, context, context_policy
-                )
-            elif left_node.type == 'member_expression':
-                collect_object_assignment(node, placeholder, symbol_table, object_table, array_table)
+        current_node = stack.pop()
+        node_visit_count[0] += 1
+        node_type = current_node.type
 
-    # Recurse
-    for child in node.named_children:
-        build_symbol_table(
-            child, placeholder, symbol_table, object_table, array_table,
-            alias_table, context, context_policy, node_visit_count, max_nodes_limit
-        )
+        if node_type in ('lexical_declaration', 'variable_declaration'):
+            for child in current_node.named_children:
+                if child.type == 'variable_declarator':
+                    collect_variable_assignment(
+                        child, placeholder, symbol_table, object_table, array_table,
+                        alias_table, context, context_policy
+                    )
+        elif node_type == 'assignment_expression':
+            left_node = current_node.child_by_field_name('left')
+            if left_node:
+                if left_node.type == 'identifier':
+                    collect_variable_assignment(
+                        current_node, placeholder, symbol_table, object_table, array_table,
+                        alias_table, context, context_policy
+                    )
+                elif left_node.type == 'member_expression':
+                    collect_object_assignment(current_node, placeholder, symbol_table, object_table, array_table)
+
+        # Add children to stack (reverse for left-to-right processing order)
+        stack.extend(reversed(current_node.named_children))
 
     return node_visit_count[0]

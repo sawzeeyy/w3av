@@ -135,7 +135,10 @@ def traverse_node(node, placeholder, verbose, url_entries, seen_urls,
                   disable_semantic_aliases=False, node_visit_count=None,
                   max_nodes_limit=1000000):
     """
-    Second pass - recursively traverses AST to extract URLs.
+    Second pass - iteratively traverses AST to extract URLs using explicit stack.
+
+    This iterative approach eliminates recursion overhead and avoids stack overflow
+    on very deep ASTs.
 
     Parameters:
     - node: AST node to traverse
@@ -164,10 +167,8 @@ def traverse_node(node, placeholder, verbose, url_entries, seen_urls,
     if node_visit_count is None:
         node_visit_count = [0]
 
-    node_visit_count[0] += 1
-
-    if node_visit_count[0] > max_nodes_limit:
-        return
+    # Use explicit stack for iterative traversal
+    stack = [node]
 
     # Create a traverse function for nested calls (e.g., processing HTML inline scripts)
     def traverse_func(n, ph, v):
@@ -178,55 +179,57 @@ def traverse_node(node, placeholder, verbose, url_entries, seen_urls,
             disable_semantic_aliases, node_visit_count, max_nodes_limit
         )
 
-    # Process current node
-    result = None
+    while stack:
+        if node_visit_count[0] > max_nodes_limit:
+            break
 
-    if node.type == 'string':
-        result = process_string_literal(
-            node, placeholder, symbol_table, object_table, array_table,
-            html_parser_backend, traverse_func
-        )
-    elif node.type == 'template_string':
-        result = process_template_string(
-            node, placeholder, symbol_table, object_table, array_table,
-            alias_table, disable_semantic_aliases, html_parser_backend, traverse_func
-        )
-    elif node.type == 'binary_expression':
-        result = process_binary_expression(
-            node, placeholder, symbol_table, object_table, array_table,
-            alias_table, disable_semantic_aliases
-        )
-    elif node.type == 'call_expression':
-        # Check for .concat(), .join(), or .replace()
-        func_node = node.child_by_field_name('function')
-        if func_node and func_node.type == 'member_expression':
-            prop = func_node.child_by_field_name('property')
-            if prop:
-                method_name = prop.text.decode('utf8')
-                if method_name == 'concat':
-                    result = process_concat_call(
-                        node, placeholder, symbol_table, object_table, array_table,
-                        alias_table, disable_semantic_aliases
-                    )
-                elif method_name in ['join', 'replace']:
-                    result = process_call_expression(
-                        node, placeholder, symbol_table, object_table, array_table
-                    )
-    elif node.type in ['comment', 'hash_bang_line']:
-        process_comments(
-            node, placeholder, verbose, url_entries, seen_urls,
-            symbol_table, object_table, array_table, alias_table,
-            mime_types, html_parser_backend, disable_semantic_aliases, max_nodes_limit
-        )
+        current_node = stack.pop()
+        node_visit_count[0] += 1
 
-    if result:
-        add_url_entry(result, url_entries, seen_urls, verbose, placeholder, mime_types)
+        # Process current node
+        result = None
+        node_type = current_node.type
 
-    # Recurse to children
-    for child in node.named_children:
-        traverse_node(
-            child, placeholder, verbose, url_entries, seen_urls,
-            symbol_table, object_table, array_table, alias_table,
-            mime_types, html_parser_backend, disable_semantic_aliases,
-            node_visit_count, max_nodes_limit
-        )
+        if node_type == 'string':
+            result = process_string_literal(
+                current_node, placeholder, symbol_table, object_table, array_table,
+                html_parser_backend, traverse_func
+            )
+        elif node_type == 'template_string':
+            result = process_template_string(
+                current_node, placeholder, symbol_table, object_table, array_table,
+                alias_table, disable_semantic_aliases, html_parser_backend, traverse_func
+            )
+        elif node_type == 'binary_expression':
+            result = process_binary_expression(
+                current_node, placeholder, symbol_table, object_table, array_table,
+                alias_table, disable_semantic_aliases
+            )
+        elif node_type == 'call_expression':
+            # Check for .concat(), .join(), or .replace()
+            func_node = current_node.child_by_field_name('function')
+            if func_node and func_node.type == 'member_expression':
+                prop = func_node.child_by_field_name('property')
+                if prop:
+                    method_name = prop.text.decode('utf8')
+                    if method_name == 'concat':
+                        result = process_concat_call(
+                            current_node, placeholder, symbol_table, object_table, array_table,
+                            alias_table, disable_semantic_aliases
+                        )
+                    elif method_name in ('join', 'replace'):
+                        result = process_call_expression(
+                            current_node, placeholder, symbol_table, object_table, array_table
+                        )
+        elif node_type in ('comment', 'hash_bang_line'):
+            process_comments(
+                current_node, placeholder, verbose, url_entries, seen_urls,
+                symbol_table, object_table, array_table, alias_table,
+                mime_types, html_parser_backend, disable_semantic_aliases, max_nodes_limit
+            )
+
+        if result:
+            add_url_entry(result, url_entries, seen_urls, verbose, placeholder, mime_types)
+
+        # Add children to stack (reverse for left-to-right processing order)
+        stack.extend(reversed(current_node.named_children))
