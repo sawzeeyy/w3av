@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "sawari"
-version = "1.0.6"
+version = "1.0.7"
 description = "extract URLs, strings, and more from JavaScript code"
 authors = ["Shuaib Oladigbolu <shuaib@footstep.ninja>"]
 license = "MIT"
