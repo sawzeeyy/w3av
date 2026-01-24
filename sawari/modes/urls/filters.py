@@ -8,6 +8,83 @@ import re
 from .config import load_mime_types, get_custom_extensions
 from sawari.core.url_utils import is_filename_pattern
 
+# Pre-compiled regex patterns at module level for performance
+# These patterns are used repeatedly in is_junk_url() - compiling once saves time
+
+_MIME_TYPE_PREFIX_PATTERN = re.compile(r'^(application|text|image|audio|video|font|multipart)/')
+_STANDALONE_PROTOCOL_PATTERN = re.compile(r'^[a-zA-Z][a-zA-Z0-9+.-]*://?$')
+_PROPERTY_PATH_PATTERN = re.compile(r'^[a-z]+\.[a-z]+\.[a-z.]+$', re.IGNORECASE)
+_GENERIC_SINGLE_PARAM_PATTERN = re.compile(r'^/\{[^}]+\}$')
+
+# Date format patterns (yyyy/mm/dd, dd/mm/yyyy, mm/dd/yyyy variants)
+_DATE_YMD_PATTERN = re.compile(
+    r'^/+(yyyy|YYYY|yy|YY|\{yyyy\}|\{YYYY\}|\{yy\}|\{YY\})[/-]'
+    r'(mm|MM|m|M|\{mm\}|\{MM\}|\{m\}|\{M\})[/-]'
+    r'(dd|DD|d|D|\{dd\}|\{DD\}|\{d\}|\{D\})/?$',
+    re.IGNORECASE
+)
+_DATE_DMY_PATTERN = re.compile(
+    r'^/+(dd|DD|d|D|\{dd\}|\{DD\}|\{d\}|\{D\})[/-]'
+    r'(mm|MM|m|M|\{mm\}|\{MM\}|\{m\}|\{M\})[/-]'
+    r'(yyyy|YYYY|yy|YY|\{yyyy\}|\{YYYY\}|\{yy\}|\{YY\})/?$',
+    re.IGNORECASE
+)
+_DATE_MDY_PATTERN = re.compile(
+    r'^/+(mm|MM|m|M|\{mm\}|\{MM\}|\{m\}|\{M\})[/-]'
+    r'(dd|DD|d|D|\{dd\}|\{DD\}|\{d\}|\{D\})[/-]'
+    r'(yyyy|YYYY|yy|YY|\{yyyy\}|\{YYYY\}|\{yy\}|\{YY\})/?$',
+    re.IGNORECASE
+)
+_TIME_FORMAT_PATTERN = re.compile(
+    r'^/+(hh|HH|h|H|\{hh\}|\{HH\}|\{h\}|\{H\}):'
+    r'(mm|MM|m|M|\{mm\}|\{MM\}|\{m\}|\{M\})'
+    r'(:(ss|SS|s|S|\{ss\}|\{SS\}|\{s\}|\{S\}))?/?$',
+    re.IGNORECASE
+)
+
+# IANA timezone pattern
+_TIMEZONE_PATTERN = re.compile(
+    r'^(Africa|America|Antarctica|Arctic|Asia|Atlantic|Australia|Europe|Indian|Pacific|Etc|US|Canada|Mexico|Brazil|Chile)/'
+    r'[A-Za-z0-9_+-]+(/[A-Za-z0-9_+-]+)?(\|.+)?$'
+)
+
+# Standalone date formats (without leading slash)
+_STANDALONE_DATE_PATTERN = re.compile(
+    r'^(yyyy|YYYY|yy|YY|mm|MM|m|M|dd|DD|d|D)[/\-]'
+    r'(yyyy|YYYY|yy|YY|mm|MM|m|M|dd|DD|d|D)[/\-]'
+    r'(yyyy|YYYY|yy|YY|mm|MM|m|M|dd|DD|d|D)$',
+    re.IGNORECASE
+)
+
+# Regex backreference pattern
+_REGEX_BACKREFERENCE_PATTERN = re.compile(r'\$\d')
+
+# Alphanumeric content check
+_HAS_ALPHANUMERIC_PATTERN = re.compile(r'[a-zA-Z0-9]')
+
+# CSS unit pattern (placeholder-independent part, we combine with placeholder at check time)
+_CSS_UNITS = ('px', 'em', 'rem', '%', 'vh', 'vw', 'vmin', 'vmax', 'ch', 'ex', 'pt', 'pc', 'in', 'cm', 'mm', 'deg', 'rad', 'turn', 's', 'ms')
+
+# JavaScript API patterns (pre-compiled list)
+_JS_API_PATTERNS = [
+    re.compile(r'^(Function|Object|Array|String|Number|Boolean|Symbol|Map|Set|WeakMap|WeakSet|Promise|Proxy|Reflect)\.'),
+    re.compile(r'^(moment|Immutable|Redux|React|Vue|Angular)\.'),
+    re.compile(r'\.prototype\.'),
+    re.compile(r'\.(bind|call|apply|toString|valueOf)\s*$'),
+]
+
+# Pre-computed sets for O(1) exact match lookups
+_JUNK_EXACT_MATCHES = frozenset({
+    'http://', 'https://', '//', 'https:', 'http:',
+    'http://localhost', 'http://a', 'http://test/path',
+    './', '/?', '/', '#',
+})
+
+# Fast prefix checks (tuple for startswith)
+_JUNK_PREFIXES = (
+    'http://www.w3.org/',  # W3C/XML namespaces
+)
+
 
 def clean_unbalanced_brackets(text):
     """
@@ -102,7 +179,20 @@ def is_junk_url(text, placeholder='FUZZ', mime_types=None):
     if not text or not isinstance(text, str):
         return True
 
-    # Load MIME types if not provided
+    # Fast path: very short strings unlikely to be URLs
+    text_len = len(text)
+    if text_len < 2:
+        return True
+
+    # Fast path: exact match check (O(1) hash lookup)
+    if text in _JUNK_EXACT_MATCHES:
+        return True
+
+    # Fast path: prefix check
+    if text.startswith(_JUNK_PREFIXES):
+        return True
+
+    # Load MIME types if not provided (cached after first call)
     if mime_types is None:
         mime_types = load_mime_types()
 
@@ -112,15 +202,11 @@ def is_junk_url(text, placeholder='FUZZ', mime_types=None):
         return True
 
     # Starts with MIME type pattern
-    if re.match(r'^(application|text|image|audio|video|font|multipart)/', text):
-        return True
-
-    # Incomplete protocols only (any protocol:// or protocol: without content)
-    if text in ['http://', 'https://', '//', 'https:', 'http:']:
+    if _MIME_TYPE_PREFIX_PATTERN.match(text):
         return True
 
     # Any standalone protocol (protocol:// with nothing after, e.g., file://, ftp://)
-    if re.match(r'^[a-zA-Z][a-zA-Z0-9+.-]*://?$', text):
+    if _STANDALONE_PROTOCOL_PATTERN.match(text):
         return True
 
     # Protocol + only placeholder (no actual domain/path info)
@@ -132,25 +218,17 @@ def is_junk_url(text, placeholder='FUZZ', mime_types=None):
 
     # Property paths (word.word.word without slashes)
     # BUT exclude legitimate filenames with valid extensions
-    if re.match(r'^[a-z]+\.[a-z]+\.[a-z.]+$', text, re.IGNORECASE) and '/' not in text:
+    if _PROPERTY_PATH_PATTERN.match(text) and '/' not in text:
         # Check if it's a valid filename first
         if not is_filename_pattern(text, get_custom_extensions()):
             return True
 
-    # W3C/XML namespaces
-    if text.startswith('http://www.w3.org/'):
-        return True
-
     # Generic single-parameter paths
-    if re.match(r'^/\{[^}]+\}$', text):  # /{t}, /{a}, /{n.pathname}
+    if _GENERIC_SINGLE_PARAM_PATTERN.match(text):  # /{t}, /{a}, /{n.pathname}
         return True
 
-    # Generic localhost/test URLs
-    if text in ['http://localhost', 'http://a', 'http://test/path']:
-        return True
-
-    # Too generic paths
-    if text in ['./', f'/{placeholder}', f'//{placeholder}']:
+    # Too generic paths (placeholder-dependent, must check at runtime)
+    if text in (f'/{placeholder}', f'//{placeholder}'):
         return True
 
     # Paths that are only placeholders separated by slashes (no actual path info)
@@ -161,57 +239,48 @@ def is_junk_url(text, placeholder='FUZZ', mime_types=None):
     # Date/time format placeholders (no actual value)
     # Examples: /yyyy/mm/dd/, /YYYY/MM/DD/, /yyyy-mm-dd/, /dd/mm/yyyy/
     # Also catches template versions: /yyyy/{mm}/{dd}/, /{yyyy}/{mm}/{dd}/
-    if re.match(r'^/+(yyyy|YYYY|yy|YY|\{yyyy\}|\{YYYY\}|\{yy\}|\{YY\})[/-](mm|MM|m|M|\{mm\}|\{MM\}|\{m\}|\{M\})[/-](dd|DD|d|D|\{dd\}|\{DD\}|\{d\}|\{D\})/?$', text, re.IGNORECASE):
+    if _DATE_YMD_PATTERN.match(text):
         return True
-    if re.match(r'^/+(dd|DD|d|D|\{dd\}|\{DD\}|\{d\}|\{D\})[/-](mm|MM|m|M|\{mm\}|\{MM\}|\{m\}|\{M\})[/-](yyyy|YYYY|yy|YY|\{yyyy\}|\{YYYY\}|\{yy\}|\{YY\})/?$', text, re.IGNORECASE):
+    if _DATE_DMY_PATTERN.match(text):
         return True
-    if re.match(r'^/+(mm|MM|m|M|\{mm\}|\{MM\}|\{m\}|\{M\})[/-](dd|DD|d|D|\{dd\}|\{DD\}|\{d\}|\{D\})[/-](yyyy|YYYY|yy|YY|\{yyyy\}|\{YYYY\}|\{yy\}|\{YY\})/?$', text, re.IGNORECASE):
+    if _DATE_MDY_PATTERN.match(text):
         return True
     # Time format placeholders: /hh:mm:ss/, /HH:MM/, /{hh}:{mm}/, etc.
-    if re.match(r'^/+(hh|HH|h|H|\{hh\}|\{HH\}|\{h\}|\{H\}):(mm|MM|m|M|\{mm\}|\{MM\}|\{m\}|\{M\})(:(ss|SS|s|S|\{ss\}|\{SS\}|\{s\}|\{S\}))?/?$', text, re.IGNORECASE):
+    if _TIME_FORMAT_PATTERN.match(text):
         return True
 
     # IANA timezone identifiers and timezone data strings (from libraries like moment-timezone)
     # Matches both clean identifiers (Europe/London) and data entries (Africa/Abidjan|LMT GMT|...)
     # Also covers nested timezones (America/Argentina/Buenos_Aires) and legacy aliases (US/Eastern)
-    if re.match(r'^(Africa|America|Antarctica|Arctic|Asia|Atlantic|Australia|Europe|Indian|Pacific|Etc|US|Canada|Mexico|Brazil|Chile)/[A-Za-z0-9_+-]+(/[A-Za-z0-9_+-]+)?(\|.+)?$', text):
+    if _TIMEZONE_PATTERN.match(text):
         return True
 
     # Standalone date format patterns (without leading slash)
     # Examples: MM/DD/YYYY, DD/MM/YYYY, YYYY/MM/DD, YYYY-MM-DD
-    if re.match(r'^(yyyy|YYYY|yy|YY|mm|MM|m|M|dd|DD|d|D)[/\-](yyyy|YYYY|yy|YY|mm|MM|m|M|dd|DD|d|D)[/\-](yyyy|YYYY|yy|YY|mm|MM|m|M|dd|DD|d|D)$', text, re.IGNORECASE):
-        return True
-
-    # Query string only (no path)
-    if text == '/?':
+    if _STANDALONE_DATE_PATTERN.match(text):
         return True
 
     # Regex replacement patterns (e.g., (/$1)?$2, $1/$2)
     # These contain $ followed by digits which are regex backreferences
-    if re.search(r'\$\d', text):
+    if _REGEX_BACKREFERENCE_PATTERN.search(text):
         return True
 
     # CSS unit patterns (e.g., FUZZpx, FUZZ%, FUZZem, FUZZrem, FUZZvh, FUZZvw)
     # These come from template strings like `${value}px`
-    if re.match(rf'^{re.escape(placeholder)}(px|em|rem|%|vh|vw|vmin|vmax|ch|ex|pt|pc|in|cm|mm|deg|rad|turn|s|ms)$', text):
+    # Use string operations instead of regex for speed
+    if text.startswith(placeholder) and text[len(placeholder):] in _CSS_UNITS:
         return True
 
     # Non-meaningful placeholder strings
     # After stripping the placeholder, if only symbols remain (no alphanumeric chars), it's junk
     # Examples: ^FUZZ$ -> ^$, /*FUZZ*FUZZ -> /**, /?([^\/]+)? -> /?([^\/]+)?
     stripped = text.replace(placeholder, '')
-    if stripped and not re.search(r'[a-zA-Z0-9]', stripped):
+    if stripped and not _HAS_ALPHANUMERIC_PATTERN.search(stripped):
         return True
 
     # JavaScript standard library patterns (not URLs)
     # Matches: Function.prototype.bind, Object.prototype.hasOwnProperty, etc.
-    js_api_patterns = [
-        r'^(Function|Object|Array|String|Number|Boolean|Symbol|Map|Set|WeakMap|WeakSet|Promise|Proxy|Reflect)\.',
-        r'^(moment|Immutable|Redux|React|Vue|Angular)\.',  # Common library prefixes
-        r'\.prototype\.',  # Prototype chain access
-        r'\.(bind|call|apply|toString|valueOf)\s*$',  # Common methods at end
-    ]
-    if any(re.search(pattern, text) for pattern in js_api_patterns):
+    if any(pattern.search(text) for pattern in _JS_API_PATTERNS):
         return True
 
     # Incomplete strings ending with unclosed quotes or parentheses

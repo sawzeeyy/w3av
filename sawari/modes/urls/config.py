@@ -4,6 +4,7 @@ Configuration loading for URL extraction.
 Handles MIME types and custom file extensions.
 """
 import importlib.resources
+from functools import lru_cache
 
 # Global variable to store custom file extensions for the current extraction
 _custom_file_extensions = set()
@@ -36,12 +37,13 @@ def set_custom_extensions(extensions):
                 _custom_file_extensions.add(ext.lower())
 
 
+@lru_cache(maxsize=1)
 def load_mime_types():
     """
-    Load MIME types from config files.
+    Load MIME types from config files (cached after first call).
 
     Returns:
-        Set of MIME type strings (~2007 types)
+        frozenset of MIME type strings (~2007 types)
 
     Config Files:
         - sawari/config/iana_mimetypes.txt (1994 official IANA MIME types)
@@ -59,4 +61,4 @@ def load_mime_types():
             .open('r') as file:
         mime_types.update(line.strip() for line in file if line.strip())
 
-    return mime_types
+    return frozenset(mime_types)  # frozenset for immutability and hashability
