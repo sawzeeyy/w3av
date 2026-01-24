@@ -1,6 +1,6 @@
 import pytest
 from io import StringIO
-from w3av.core.output import write_output
+from sawari.core.output import write_output
 
 
 def test_write_output_to_stream():

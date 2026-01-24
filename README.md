@@ -1,4 +1,6 @@
-# w3av
+# ṣàwárí
+> ṣàwárí (ṣe àwárí) means 'to discover, explore, or search' in Yorùbá
+
 Extract URLs, strings, and more from JavaScript code using tree-sitter.
 
 ## Features
@@ -9,10 +11,10 @@ Extract URLs, strings, and more from JavaScript code using tree-sitter.
 - **Query Mode** - Custom tree-sitter queries for pattern matching
 
 ## Installation
-**w3av** requires at least Python 3.11
+**ṣàwárí** requires at least Python 3.11
 
 ```bash
-pip install w3av
+pip install sawari
 ```
 
 ## Usage
@@ -20,23 +22,23 @@ Read more in the [documentation](docs/)
 
 ### Extract URLs and API endpoints
 ```bash
-w3av urls app.js --include-templates
-w3av urls bundle.js --context '{"API_URL":"https://api.example.com"}'
+sawari urls app.js --include-templates
+sawari urls bundle.js --context '{"API_URL":"https://api.example.com"}'
 ```
 
 ### Find potential secrets
 ```bash
-w3av strings app.js --min 20 | grep -i "key\|token\|secret"
+sawari strings app.js --min 20 | grep -i "key\|token\|secret"
 ```
 
 ### Visualize code structure
 ```bash
-w3av tree app.js --only-named
+sawari tree app.js --only-named
 ```
 
 ### Custom pattern matching
 ```bash
-w3av query app.js --query '(function_declaration name: (identifier) @name)'
+sawari query app.js --query '(function_declaration name: (identifier) @name)'
 ```
 
 ## Related Tools

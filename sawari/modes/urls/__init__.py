@@ -8,8 +8,8 @@ Main entry point:
     get_urls(node, placeholder, include_templates, verbose, ...) -> List[str]
 
 Example usage:
-    from w3av.modes.urls import get_urls
-    from w3av.core.jsparser import parse_javascript
+    from sawari.modes.urls import get_urls
+    from sawari.core.jsparser import parse_javascript
 
     source_code, root_node = parse_javascript(js_content)
     urls = get_urls(root_node, 'FUZZ', include_templates=True, verbose=False)
@@ -26,7 +26,7 @@ from .config import (
 )
 
 # Re-export from core.url_utils for backward compatibility
-from w3av.core.url_utils import is_url_pattern, is_path_pattern
+from sawari.core.url_utils import is_url_pattern, is_path_pattern
 
 # Filtering and cleaning
 from .filters import (

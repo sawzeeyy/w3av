@@ -1,6 +1,6 @@
-# w3av Documentation
+# ṣàwárí Documentation
 
-Comprehensive documentation for **w3av** - extract URLs, strings, and more from JavaScript code.
+Comprehensive documentation for **ṣàwárí** - extract URLs, strings, and more from JavaScript code.
 
 | Mode | Purpose | Common Options |
 |------|---------|---------------|
@@ -12,7 +12,7 @@ Comprehensive documentation for **w3av** - extract URLs, strings, and more from 
 
 ## Modes
 
-w3av provides five modes for different JavaScript analysis tasks:
+ṣàwárí provides five modes for different JavaScript analysis tasks:
 
 ### [URLs Mode](urls.md)
 Extract URLs, API endpoints, and paths from JavaScript with intelligent variable resolution.
@@ -25,8 +25,8 @@ Extract URLs, API endpoints, and paths from JavaScript with intelligent variable
 
 **Quick start:**
 ```bash
-w3av urls app.js --include-templates
-w3av urls bundle.js --context '{"API_URL":"https://api.example.com"}'
+sawari urls app.js --include-templates
+sawari urls bundle.js --context '{"API_URL":"https://api.example.com"}'
 ```
 
 [Read full documentation →](urls.md)
@@ -44,8 +44,8 @@ Extract all string literals and template strings from JavaScript code.
 
 **Quick start:**
 ```bash
-w3av strings app.js --min 10
-w3av strings app.js | grep -i "key\|token\|secret"
+sawari strings app.js --min 10
+sawari strings app.js | grep -i "key\|token\|secret"
 ```
 
 [Read full documentation →](strings.md)
@@ -63,8 +63,8 @@ Display the Abstract Syntax Tree (AST) structure of JavaScript code.
 
 **Quick start:**
 ```bash
-w3av tree app.js --only-named
-w3av tree app.js --include-text
+sawari tree app.js --only-named
+sawari tree app.js --include-text
 ```
 
 [Read full documentation →](tree.md)
@@ -82,8 +82,8 @@ Discover available node types or get statistics about AST node usage.
 
 **Quick start:**
 ```bash
-w3av inspect app.js
-w3av inspect --get-types
+sawari inspect app.js
+sawari inspect --get-types
 ```
 
 [Read full documentation →](inspect.md)
@@ -101,8 +101,8 @@ Execute tree-sitter queries to extract specific code patterns.
 
 **Quick start:**
 ```bash
-w3av query app.js --query '(string) @str'
-w3av query app.js --query '(function_declaration name: (identifier) @name)'
+sawari query app.js --query '(string) @str'
+sawari query app.js --query '(function_declaration name: (identifier) @name)'
 ```
 
 [Read full documentation →](query.md)
@@ -112,7 +112,7 @@ w3av query app.js --query '(function_declaration name: (identifier) @name)'
 ## Installation
 
 ```bash
-pip install w3av
+pip install sawari
 ```
 
 **Requirements:**
@@ -123,28 +123,28 @@ pip install w3av
 
 ## Shell Completion
 
-w3av supports tab autocompletion for Bash, Zsh, and Fish shells.
+sawari supports tab autocompletion for Bash, Zsh, and Fish shells.
 
 ### Bash
 ```bash
-eval "$(register-python-argcomplete w3av)"
+eval "$(register-python-argcomplete sawari)"
 ```
 Add the above line to your `~/.bashrc` to enable permanently.
 
 ### Zsh
 ```bash
 autoload -U bashcompinit && bashcompinit
-eval "$(register-python-argcomplete w3av)"
+eval "$(register-python-argcomplete sawari)"
 ```
 Add the above lines to your `~/.zshrc` to enable permanently.
 
 ### Fish
 ```bash
-register-python-argcomplete --shell fish w3av | source
+register-python-argcomplete --shell fish sawari | source
 ```
 To enable permanently, run:
 ```bash
-register-python-argcomplete --shell fish w3av > ~/.config/fish/completions/w3av.fish
+register-python-argcomplete --shell fish sawari > ~/.config/fish/completions/sawari.fish
 ```
 
 ## Common Workflows
@@ -152,46 +152,46 @@ register-python-argcomplete --shell fish w3av > ~/.config/fish/completions/w3av.
 ### Security Testing
 ```bash
 # Find all URLs and endpoints
-w3av urls app.js --include-templates > urls.txt
+sawari urls app.js --include-templates > urls.txt
 
 # Find potential secrets
-w3av strings app.js --min 20 | grep -i "key\|token\|password"
+sawari strings app.js --min 20 | grep -i "key\|token\|password"
 
 # Find dangerous functions
-w3av query app.js --query '(call_expression function: (identifier) @func)' | grep -E "eval|exec"
+sawari query app.js --query '(call_expression function: (identifier) @func)' | grep -E "eval|exec"
 ```
 
 ### API Discovery
 ```bash
 # Extract all URLs with context
-w3av urls app.js --context config.json --include-templates
+sawari urls app.js --context config.json --include-templates
 
 # Find all HTTP methods
-w3av query app.js --query '(member_expression property: (property_identifier) @method)' | grep -E "get|post|put|delete"
+sawari query app.js --query '(member_expression property: (property_identifier) @method)' | grep -E "get|post|put|delete"
 ```
 
 ### Code Analysis
 ```bash
 # Visualize structure
-w3av tree app.js --only-named > structure.txt
+sawari tree app.js --only-named > structure.txt
 
 # Find all function names
-w3av query app.js --query '(function_declaration name: (identifier) @name)' --unique
+sawari query app.js --query '(function_declaration name: (identifier) @name)' --unique
 
 # List all constructs
-w3av inspect app.js
+sawari inspect app.js
 ```
 
 ### Debugging
 ```bash
 # See full AST with text
-w3av tree broken.js --include-text --parse-comments
+sawari tree broken.js --include-text --parse-comments
 
 # Extract strings even from broken code
-w3av strings broken.js --include-error
+sawari strings broken.js --include-error
 
 # Check what node types exist
-w3av inspect broken.js
+sawari inspect broken.js
 ```
 
 ## Tips & Best Practices

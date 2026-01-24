@@ -1,5 +1,5 @@
-from w3av.core.jsparser import parse_javascript
-from w3av.modes.strings import get_strings
+from sawari.core.jsparser import parse_javascript
+from sawari.modes.strings import get_strings
 
 
 def test_get_strings_basic():

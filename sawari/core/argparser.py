@@ -4,7 +4,7 @@ import textwrap
 
 import argcomplete
 from importlib.metadata import version as pkg_version
-from w3av.core.context import parse_context_input, validate_policy
+from sawari.core.context import parse_context_input, validate_policy
 
 
 class ArgumentParser(argparse.ArgumentParser):
@@ -33,13 +33,13 @@ class ArgumentParser(argparse.ArgumentParser):
 
         cmd_examples = textwrap.dedent('''
         Examples:
-            w3av urls main.js
-            w3av urls --input main.js
-            w3av tree main.js --only-named
-            w3av strings main.js --min 3
-            w3av inspect main.js --types string template_string
-            w3av query --input main.js --query '(string) @str' --trim
-            cat main.js | w3av urls --include-templates
+            sawari urls main.js
+            sawari urls --input main.js
+            sawari tree main.js --only-named
+            sawari strings main.js --min 3
+            sawari inspect main.js --types string template_string
+            sawari query --input main.js --query '(string) @str' --trim
+            cat main.js | sawari urls --include-templates
         ''')
         print(cmd_examples)
 
@@ -89,10 +89,10 @@ def add_subparser_with_common_args(subparsers, mode, description):
 
 
 def parse_arguments():
-    prog = 'w3av'
+    prog = 'sawari'
     desc = 'extract URLs, strings, and more from JavaScript code'
     __version__ = pkg_version(prog)
-    parser = ArgumentParser(prog=prog, description=f'{prog} - {desc}')
+    parser = ArgumentParser(prog=prog, description=f'ṣàwárí - {desc}')
     parser.add_argument('-v', '--version', action='version',
                         version=f'{prog} {__version__}')
     parser._optionals.title = 'Options'

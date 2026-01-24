@@ -18,7 +18,7 @@ from .aliases import (
     extract_aliases_from_object,
     scan_sibling_nodes_for_aliases,
 )
-from w3av.core.context import should_use_file_value
+from sawari.core.context import should_use_file_value
 
 
 def collect_array_elements(node, array_name, placeholder, symbol_table, object_table, array_table):

@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 import sys
 
-from w3av.core.argparser import parse_arguments
-from w3av.core.jsparser import parse_javascript
-from w3av.core.output import write_output
-from w3av.modes.urls import get_urls
-from w3av.modes.tree import get_syntax_tree
-from w3av.modes.strings import get_strings
-from w3av.modes.inspect import inspect_nodes
-from w3av.modes.query import query_nodes
+from sawari.core.argparser import parse_arguments
+from sawari.core.jsparser import parse_javascript
+from sawari.core.output import write_output
+from sawari.modes.urls import get_urls
+from sawari.modes.tree import get_syntax_tree
+from sawari.modes.strings import get_strings
+from sawari.modes.inspect import inspect_nodes
+from sawari.modes.query import query_nodes
 
 
 def main():
     if sys.version_info < (3, 11):
-        print("w3av requires Python 3.11 or higher")
+        print("sawari requires Python 3.11 or higher")
         sys.exit(1)
 
     args = parse_arguments()

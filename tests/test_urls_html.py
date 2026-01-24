@@ -1,8 +1,8 @@
 import pytest
 
 from pathlib import Path
-from w3av.core.jsparser import parse_javascript
-from w3av.modes.urls import get_urls
+from sawari.core.jsparser import parse_javascript
+from sawari.modes.urls import get_urls
 
 """
 Tests for HTML URL extraction integration in urls.py

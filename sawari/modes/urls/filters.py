@@ -6,7 +6,7 @@ Handles junk URL detection, bracket balancing, and placeholder consolidation.
 import re
 
 from .config import load_mime_types, get_custom_extensions
-from w3av.core.url_utils import is_filename_pattern
+from sawari.core.url_utils import is_filename_pattern
 
 
 def clean_unbalanced_brackets(text):

@@ -1,4 +1,4 @@
-from w3av.core.jsparser import parse_javascript
+from sawari.core.jsparser import parse_javascript
 
 
 def test_parse_simple_javascript():

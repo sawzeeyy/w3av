@@ -1,5 +1,5 @@
-from w3av.core.jsparser import parse_javascript
-from w3av.modes.tree import get_syntax_tree
+from sawari.core.jsparser import parse_javascript
+from sawari.modes.tree import get_syntax_tree
 
 
 def test_get_syntax_tree_basic():
