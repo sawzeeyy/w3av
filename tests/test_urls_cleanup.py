@@ -10,8 +10,8 @@ Covers:
 import os
 import pytest
 
-from w3av.core.jsparser import parse_javascript
-from w3av.modes.urls import (
+from sawari.core.jsparser import parse_javascript
+from sawari.modes.urls import (
     get_urls,
     clean_trailing_sentence_punctuation,
     consolidate_adjacent_placeholders,

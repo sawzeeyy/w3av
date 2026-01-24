@@ -21,9 +21,9 @@ Extract URLs, API endpoints, and paths from JavaScript code with intelligent res
 ## Basic Usage
 
 ```bash
-w3av urls script.js
-w3av urls --input script.js
-cat script.js | w3av urls
+sawari urls script.js
+sawari urls --input script.js
+cat script.js | sawari urls
 ```
 
 ## Features
@@ -119,21 +119,21 @@ const path = location.pathname + "/data";
 Specify the input JavaScript file. This is an alternative to providing the file as a positional argument. Supports pipeline input from stdin if not specified.
 
 ```bash
-w3av urls --input script.js
+sawari urls --input script.js
 ```
 
 ### `--placeholder STR`
 Customize the placeholder for unknown values (default: `FUZZ`):
 
 ```bash
-w3av urls script.js --placeholder UNKNOWN
+sawari urls script.js --placeholder UNKNOWN
 ```
 
 ### `--include-templates`
 Include URLs containing templates or variables:
 
 ```bash
-w3av urls script.js --include-templates
+sawari urls script.js --include-templates
 ```
 
 Without this flag, only fully resolved URLs are output.
@@ -150,7 +150,7 @@ const url = `/users/${userId}`;
 Print URLs as they are discovered in real-time:
 
 ```bash
-w3av urls script.js --verbose
+sawari urls script.js --verbose
 ```
 
 Useful for debugging or monitoring progress on large files.
@@ -159,21 +159,21 @@ Useful for debugging or monitoring progress on large files.
 Write results to a file instead of stdout:
 
 ```bash
-w3av urls script.js --output results.txt
+sawari urls script.js --output results.txt
 ```
 
 ### `--max-nodes N`
 Limit AST traversal to prevent hanging on extremely large files (default: 1,000,000):
 
 ```bash
-w3av urls large-bundle.js --max-nodes 5000000
+sawari urls large-bundle.js --max-nodes 5000000
 ```
 
 ### `--max-file-size MB`
 Skip symbol resolution for files larger than specified size (default: 1.0 MB):
 
 ```bash
-w3av urls bundle.js --max-file-size 2.0
+sawari urls bundle.js --max-file-size 2.0
 ```
 
 Large files automatically skip symbol table building for faster processing.
@@ -182,7 +182,7 @@ Large files automatically skip symbol table building for faster processing.
 Choose HTML parser backend for extracting URLs from HTML strings (default: `lxml`):
 
 ```bash
-w3av urls script.js --html-parser html5lib
+sawari urls script.js --html-parser html5lib
 ```
 
 **Available parsers:**
@@ -195,7 +195,7 @@ w3av urls script.js --html-parser html5lib
 Disable symbol resolution for faster processing:
 
 ```bash
-w3av urls script.js --skip-symbols
+sawari urls script.js --skip-symbols
 ```
 
 Skips variable tracking and only extracts literal URLs. Useful for quick scans or very large files.
@@ -204,7 +204,7 @@ Skips variable tracking and only extracts literal URLs. Useful for quick scans o
 Use raw variable names instead of semantic aliases:
 
 ```bash
-w3av urls script.js --skip-aliases
+sawari urls script.js --skip-aliases
 ```
 
 **Example:**
@@ -222,7 +222,7 @@ const url = `/api/content/${t}`;
 Specify additional file extensions to include in URL extraction (comma-separated):
 
 ```bash
-w3av urls script.js --extensions proto,protobuf
+sawari urls script.js --extensions proto,protobuf
 ```
 
 This supplements the default extensions and allows extraction from custom file types without updating the tool. Extensions should be provided without the leading dot.
@@ -236,18 +236,18 @@ Define known variables using JSON, KEY=VALUE pairs, or a JSON file:
 
 **JSON string:**
 ```bash
-w3av urls script.js --context '{"API_BASE":"https://api.example.com"}'
+sawari urls script.js --context '{"API_BASE":"https://api.example.com"}'
 ```
 
 **KEY=VALUE pairs:**
 ```bash
-w3av urls script.js --context 'API_BASE=https://api.example.com,CDN=https://cdn.com'
+sawari urls script.js --context 'API_BASE=https://api.example.com,CDN=https://cdn.com'
 ```
 
 **JSON file:**
 ```bash
 echo '{"API_BASE":"https://api.example.com"}' > context.json
-w3av urls script.js --context context.json
+sawari urls script.js --context context.json
 ```
 
 **Example usage:**
@@ -262,7 +262,7 @@ Control how context values interact with file-defined variables (default: `merge
 
 **merge** (default) - Append both context and file values:
 ```bash
-w3av urls script.js --context 't=/api' --context-policy merge
+sawari urls script.js --context 't=/api' --context-policy merge
 ```
 
 ```javascript
@@ -273,7 +273,7 @@ const url = `${t}/users`;
 
 **override** - Context takes precedence, ignore file values:
 ```bash
-w3av urls script.js --context 't=/api' --context-policy override
+sawari urls script.js --context 't=/api' --context-policy override
 ```
 
 ```javascript
@@ -284,7 +284,7 @@ const url = `${t}/users`;
 
 **only** - Use only context, skip file symbol resolution:
 ```bash
-w3av urls script.js --context 't=/api' --context-policy only
+sawari urls script.js --context 't=/api' --context-policy only
 ```
 
 Fastest option when you have complete context definitions.
@@ -293,37 +293,37 @@ Fastest option when you have complete context definitions.
 
 ### Basic extraction
 ```bash
-w3av urls app.js
+sawari urls app.js
 ```
 
 ### Extract with templates
 ```bash
-w3av urls app.js --include-templates
+sawari urls app.js --include-templates
 ```
 
 ### Provide API configuration
 ```bash
-w3av urls app.js --context '{"BASE_URL":"https://api.example.com"}' --include-templates
+sawari urls app.js --context '{"BASE_URL":"https://api.example.com"}' --include-templates
 ```
 
 ### Override window.location.host
 ```bash
-w3av urls app.js --context 'window.location.host=example.com'
+sawari urls app.js --context 'window.location.host=example.com'
 ```
 
 ### Process large bundle efficiently
 ```bash
-w3av urls bundle.js --max-file-size 5.0 --skip-aliases
+sawari urls bundle.js --max-file-size 5.0 --skip-aliases
 ```
 
 ### Debug variable resolution
 ```bash
-w3av urls app.js --include-templates --verbose
+sawari urls app.js --include-templates --verbose
 ```
 
 ### Extract to file
 ```bash
-w3av urls app.js --include-templates --output urls.txt
+sawari urls app.js --include-templates --output urls.txt
 ```
 
 ## Output Format
@@ -362,15 +362,15 @@ The tool automatically filters out:
 
 ### Extracting from webpack bundles
 ```bash
-w3av urls bundle.js --max-nodes 10000000 --skip-aliases
+sawari urls bundle.js --max-nodes 10000000 --skip-aliases
 ```
 
 ### Finding API endpoints in React apps
 ```bash
-w3av urls app.js --context '{"API_URL":"https://api.example.com"}' --include-templates
+sawari urls app.js --context '{"API_URL":"https://api.example.com"}' --include-templates
 ```
 
 ### Security testing
 ```bash
-w3av urls app.js --include-templates | grep -E "https?://"
+sawari urls app.js --include-templates | grep -E "https?://"
 ```

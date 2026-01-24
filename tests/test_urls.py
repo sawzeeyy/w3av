@@ -1,5 +1,5 @@
 """
-Tests for w3av.modes.urls module - Core URL extraction from JavaScript files.
+Tests for sawari.modes.urls module - Core URL extraction from JavaScript files.
 
 This is the main test file for URL extraction. Additional tests are organized in:
 - test_urls_methods.py: Method-based extraction (concat, join, replace)
@@ -18,8 +18,8 @@ Tests in this file cover:
 import os
 import pytest
 
-from w3av.core.jsparser import parse_javascript
-from w3av.modes.urls import get_urls
+from sawari.core.jsparser import parse_javascript
+from sawari.modes.urls import get_urls
 
 
 # Path to test fixtures

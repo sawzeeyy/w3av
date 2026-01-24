@@ -1,7 +1,7 @@
 """
 Tests for HTML file input handling in URLs mode.
 
-Tests that w3av correctly detects HTML content and extracts URLs from:
+Tests that sawari correctly detects HTML content and extracts URLs from:
 - HTML attributes (href, src, action, etc.)
 - Inline JavaScript in <script> tags
 """
@@ -9,7 +9,7 @@ Tests that w3av correctly detects HTML content and extracts URLs from:
 from tree_sitter import Parser, Language
 import tree_sitter_javascript
 
-from w3av.modes.urls import get_urls, is_html_content
+from sawari.modes.urls import get_urls, is_html_content
 
 
 def parse_js(code):

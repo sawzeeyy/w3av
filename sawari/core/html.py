@@ -1,6 +1,6 @@
 import re
 from bs4 import BeautifulSoup, Comment
-from w3av.core.url_utils import is_url_pattern, is_path_pattern, is_filename_pattern
+from sawari.core.url_utils import is_url_pattern, is_path_pattern, is_filename_pattern
 
 """
 HTML parsing utilities for extracting URLs from HTML markup and inline JavaScript.

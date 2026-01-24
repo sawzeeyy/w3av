@@ -10,8 +10,8 @@ Handles processing of different AST node types to extract URLs:
 import re
 from itertools import product
 
-from w3av.core.url_utils import is_url_pattern, is_path_pattern
-from w3av.core.html import extract_urls_from_html, extract_inline_scripts_from_html
+from sawari.core.url_utils import is_url_pattern, is_path_pattern
+from sawari.core.html import extract_urls_from_html, extract_inline_scripts_from_html
 
 from .resolvers import (
     decode_js_string,
@@ -102,7 +102,7 @@ def process_html_content(text, placeholder, html_parser_backend='lxml', traverse
     - html_parser_backend: HTML parser to use ('lxml', 'html.parser', etc.)
     - traverse_func: Optional function to traverse inline script ASTs
     """
-    from w3av.core.jsparser import parse_javascript
+    from sawari.core.jsparser import parse_javascript
 
     if not text or '<' not in text or '>' not in text:
         return None

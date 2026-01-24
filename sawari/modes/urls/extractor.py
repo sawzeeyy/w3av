@@ -5,9 +5,9 @@ Provides the main get_urls() function that coordinates all extraction passes.
 """
 import sys
 
-from w3av.core.jsparser import parse_javascript
-from w3av.core.html import extract_urls_from_html, extract_inline_scripts_from_html
-from w3av.core.context import populate_symbol_tables, should_skip_pass1
+from sawari.core.jsparser import parse_javascript
+from sawari.core.html import extract_urls_from_html, extract_inline_scripts_from_html
+from sawari.core.context import populate_symbol_tables, should_skip_pass1
 
 from .config import load_mime_types, set_custom_extensions
 from .output import format_output, is_html_content

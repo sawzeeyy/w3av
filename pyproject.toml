@@ -1,15 +1,15 @@
 [tool.poetry]
-name = "w3av"
+name = "sawari"
 version = "1.0.5"
 description = "extract URLs, strings, and more from JavaScript code"
 authors = ["Shuaib Oladigbolu <shuaib@footstep.ninja>"]
 license = "MIT"
 readme = "README.md"
 include = [
-	"w3av/config/nodetypes.txt",
-	"w3av/config/mimetypes.txt",
-	"w3av/config/iana_mimetypes.txt",
-	"w3av/config/file_extensions.txt"
+	"sawari/config/nodetypes.txt",
+	"sawari/config/mimetypes.txt",
+	"sawari/config/iana_mimetypes.txt",
+	"sawari/config/file_extensions.txt"
 ]
 
 [tool.poetry.dependencies]
@@ -23,7 +23,7 @@ html5-parser = "^0.4.12"
 argcomplete = "^3.2.0"
 
 [tool.poetry.scripts]
-w3av = "w3av.w3av:main"
+sawari = "sawari.sawari:main"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0.1"

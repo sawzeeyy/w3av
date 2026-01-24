@@ -1,5 +1,5 @@
-from w3av.core.jsparser import parse_javascript
-from w3av.modes.inspect import inspect_nodes
+from sawari.core.jsparser import parse_javascript
+from sawari.modes.inspect import inspect_nodes
 
 
 def test_inspect_get_types():

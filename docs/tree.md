@@ -14,9 +14,9 @@ Display the Abstract Syntax Tree (AST) structure of JavaScript code.
 ## Basic Usage
 
 ```bash
-w3av tree script.js
-w3av tree --input script.js
-cat script.js | w3av tree
+sawari tree script.js
+sawari tree --input script.js
+cat script.js | sawari tree
 ```
 
 ## Output
@@ -55,21 +55,21 @@ program
 Specify the input JavaScript file. This is an alternative to providing the file as a positional argument. Supports pipeline input from stdin if not specified.
 
 ```bash
-w3av tree --input script.js
+sawari tree --input script.js
 ```
 
 ### `--indent N`
 Set indentation level (default: 2 spaces):
 
 ```bash
-w3av tree script.js --indent 4
+sawari tree script.js --indent 4
 ```
 
 ### `--only-named`
 Show only named nodes (exclude punctuation and keywords):
 
 ```bash
-w3av tree script.js --only-named
+sawari tree script.js --only-named
 ```
 
 **Without `--only-named`:**
@@ -97,7 +97,7 @@ program
 Display the actual text content of each node:
 
 ```bash
-w3av tree script.js --include-text
+sawari tree script.js --include-text
 ```
 
 **Output:**
@@ -113,7 +113,7 @@ program
 Include comment nodes in the tree:
 
 ```bash
-w3av tree script.js --parse-comments
+sawari tree script.js --parse-comments
 ```
 
 By default, comments are ignored during parsing.
@@ -122,34 +122,34 @@ By default, comments are ignored during parsing.
 Write tree to a file:
 
 ```bash
-w3av tree script.js --output ast.txt
+sawari tree script.js --output ast.txt
 ```
 
 ## Examples
 
 ### Basic tree structure
 ```bash
-w3av tree app.js
+sawari tree app.js
 ```
 
 ### Clean tree without syntax noise
 ```bash
-w3av tree app.js --only-named
+sawari tree app.js --only-named
 ```
 
 ### Tree with source text
 ```bash
-w3av tree app.js --include-text
+sawari tree app.js --include-text
 ```
 
 ### Detailed tree with comments
 ```bash
-w3av tree app.js --parse-comments --indent 4
+sawari tree app.js --parse-comments --indent 4
 ```
 
 ### Save tree for analysis
 ```bash
-w3av tree bundle.js --only-named --output bundle-ast.txt
+sawari tree bundle.js --only-named --output bundle-ast.txt
 ```
 
 ## Use Cases
@@ -206,5 +206,5 @@ Tree mode is fast and can handle large files efficiently. The output size grows 
 
 1. Use `--only-named` for cleaner output when learning
 2. Add `--include-text` to correlate tree structure with source
-3. Pipe to `less` or `more` for large trees: `w3av tree bundle.js | less`
-4. Use with grep to find specific node types: `w3av tree app.js | grep "function_declaration"`
+3. Pipe to `less` or `more` for large trees: `sawari tree bundle.js | less`
+4. Use with grep to find specific node types: `sawari tree app.js | grep "function_declaration"`

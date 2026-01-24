@@ -16,7 +16,7 @@ Covers:
 
 import pytest
 
-from w3av.modes.urls import is_junk_url
+from sawari.modes.urls import is_junk_url
 
 
 class TestStandaloneProtocols:

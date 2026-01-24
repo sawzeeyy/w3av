@@ -1,6 +1,6 @@
 import pytest
-from w3av.core.jsparser import parse_javascript
-from w3av.modes.query import query_nodes
+from sawari.core.jsparser import parse_javascript
+from sawari.modes.query import query_nodes
 
 
 def test_query_strings():

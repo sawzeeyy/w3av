@@ -3,7 +3,7 @@ import tempfile
 import os
 import json
 
-from w3av.core.context import (
+from sawari.core.context import (
     parse_context_input,
     populate_symbol_tables,
     should_skip_pass1,

@@ -1,6 +1,6 @@
 import pytest
 
-from w3av.core.html import (
+from sawari.core.html import (
     extract_urls_from_html,
     extract_inline_scripts_from_html,
     is_url_pattern,

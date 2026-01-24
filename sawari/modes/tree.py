@@ -1,5 +1,5 @@
-from w3av.core.jsparser import parse_javascript
-from w3av.core.comment import remove_comment_delimiter
+from sawari.core.jsparser import parse_javascript
+from sawari.core.comment import remove_comment_delimiter
 
 
 def traverse_node(

@@ -1,5 +1,5 @@
-from w3av.core.jsparser import parse_javascript
-from w3av.core.comment import remove_comment_delimiter
+from sawari.core.jsparser import parse_javascript
+from sawari.core.comment import remove_comment_delimiter
 
 import importlib.resources
 
@@ -33,7 +33,7 @@ def process_comments(node, types):
 
 
 def inspect_nodes(node, get_types, types):
-    with importlib.resources.files('w3av.config').joinpath('nodetypes.txt')\
+    with importlib.resources.files('sawari.config').joinpath('nodetypes.txt')\
             .open('r') as file:
         all_nodetypes = [x.strip() for x in file.readlines()]
 

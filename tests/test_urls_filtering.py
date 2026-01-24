@@ -15,8 +15,8 @@ import pytest
 import tree_sitter_javascript
 
 from tree_sitter import Parser, Language
-from w3av.core.jsparser import parse_javascript
-from w3av.modes.urls import (
+from sawari.core.jsparser import parse_javascript
+from sawari.modes.urls import (
     get_urls,
     clean_unbalanced_brackets,
     is_junk_url,

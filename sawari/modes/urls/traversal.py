@@ -5,8 +5,8 @@ Handles traversing the AST to extract URLs and managing the URL entry collection
 """
 import re
 
-from w3av.core.jsparser import parse_javascript
-from w3av.core.url_utils import is_url_pattern, is_path_pattern
+from sawari.core.jsparser import parse_javascript
+from sawari.core.url_utils import is_url_pattern, is_path_pattern
 
 from .filters import clean_unbalanced_brackets, clean_trailing_sentence_punctuation, is_junk_url
 from .processors import (
